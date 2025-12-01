@@ -1,3 +1,12 @@
+<?php
+session_start();
+if (!isset($_SESSION['admin'])) {
+    header("Location: index.html");
+    exit();
+}
+?>
+
+
  <!-- DASHBOARD -->
     <div id="dashboard" class="dashboard">
         <!-- Sidebar -->
@@ -15,7 +24,7 @@
                     </div>
                 </div>
             </div>
-
+<a href="logout.php" class="logout-btn">Logout</a>
             <nav class="sidebar-menu">
                 <div class="menu-item active" data-page="overview">
                     <svg viewBox="0 0 24 24">
@@ -135,3 +144,11 @@
             </div>
         </main>
     </div>
+
+
+    <?php
+session_start();
+session_destroy();
+header("Location: index.html");
+exit();
+?>

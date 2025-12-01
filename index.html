@@ -32,41 +32,45 @@
                     <span>Secure Admin Access</span>
                 </div>
 
-                <div class="input-group">
-                    <label for="email">Email Address</label>
-                    <div class="input-wrapper">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                        </svg>
-                        <input type="email" id="email" placeholder="admin@imargroup.com">
+                <!-- FORM START -->
+                <form action="login.php" method="POST">
+                    <div class="input-group">
+                        <label for="email">Email Address</label>
+                        <div class="input-wrapper">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                            </svg>
+                            <input type="email" name="email" id="email" placeholder="admin@imargroup.com" required>
+                        </div>
                     </div>
-                </div>
 
-                <div class="input-group">
-                    <label for="password">Password</label>
-                    <div class="input-wrapper">
-                        <svg viewBox="0 0 24 24">
-                            <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
-                        </svg>
-                        <input type="password" id="password" placeholder="••••••••">
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <div class="input-wrapper">
+                            <svg viewBox="0 0 24 24">
+                                <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                            </svg>
+                            <input type="password" name="password" id="password" placeholder="••••••••" required>
+                        </div>
                     </div>
-                </div>
 
-                <div class="remember-forgot">
-                    <label class="remember-me">
-                        <input type="checkbox" id="remember">
-                        <span>Remember me</span>
-                    </label>
-                    <a href="#" class="forgot-password">Forgot password?</a>
-                </div>
+                    <div class="remember-forgot">
+                        <label class="remember-me">
+                            <input type="checkbox" id="remember">
+                            <span>Remember me</span>
+                        </label>
+                        <a href="#" class="forgot-password">Forgot password?</a>
+                    </div>
 
-                <button class="login-btn" id="loginBtn">
-                    <span id="loginText">Sign In</span>
-                    <svg id="loginArrow" width="20" height="20" viewBox="0 0 24 24" fill="white">
-                        <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
-                    </svg>
-                    <div id="loginSpinner" class="spinner hidden"></div>
-                </button>
+                    <button type="submit" class="login-btn">
+                        <span id="loginText">Sign In</span>
+                        <svg id="loginArrow" width="20" height="20" viewBox="0 0 24 24" fill="white">
+                            <path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/>
+                        </svg>
+                        <div id="loginSpinner" class="spinner hidden"></div>
+                    </button>
+                </form>
+                <!-- FORM END -->
 
                 <div class="login-footer">
                     <p>Need help? Contact IT support</p>
