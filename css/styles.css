@@ -1,11 +1,16 @@
 /* =============================
+   IMAR GROUP ADMIN PANEL - COMPLETE CSS
+   File: css/Style.css
+============================= */
+
+/* =============================
    RESET & BASE STYLES
 ============================= */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 body {
@@ -20,7 +25,7 @@ a {
 }
 
 /* =============================
-   LOGIN PAGE
+   LOGIN PAGE STYLES
 ============================= */
 .login-container {
     display: flex;
@@ -30,6 +35,7 @@ a {
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
     position: relative;
     overflow: hidden;
+    padding: 20px;
 }
 
 .bg-shape {
@@ -37,6 +43,7 @@ a {
     border-radius: 50%;
     opacity: 0.15;
 }
+
 .bg-shape-1 {
     width: 300px;
     height: 300px;
@@ -44,6 +51,7 @@ a {
     top: -50px;
     left: -50px;
 }
+
 .bg-shape-2 {
     width: 400px;
     height: 400px;
@@ -58,6 +66,9 @@ a {
     border-radius: 12px;
     box-shadow: 0 10px 25px rgba(0,0,0,0.1);
     width: 100%;
+    max-width: 450px;
+    position: relative;
+    z-index: 1;
 }
 
 .logo-container {
@@ -65,7 +76,7 @@ a {
     margin-bottom: 25px;
 }
 
-.logo-container svg {
+.logo-icon svg {
     width: 50px;
     height: 50px;
     fill: #4f46e5;
@@ -76,6 +87,7 @@ a {
     font-size: 24px;
     font-weight: 700;
     margin-bottom: 5px;
+    color: #0f172a;
 }
 
 .logo-container .subtitle {
@@ -86,12 +98,45 @@ a {
 .security-badge {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     font-size: 12px;
     color: #10b981;
     margin-bottom: 20px;
 }
 
+.security-badge svg {
+    fill: currentColor;
+}
+
+/* Alert Styles */
+.alert {
+    padding: 12px 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.alert-error {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fca5a5;
+}
+
+.alert-success {
+    background-color: #d1fae5;
+    color: #059669;
+    border: 1px solid #6ee7b7;
+}
+
+.alert strong {
+    font-weight: 600;
+}
+
+/* Form Styles */
 .input-group {
     margin-bottom: 20px;
 }
@@ -101,6 +146,7 @@ a {
     font-weight: 500;
     margin-bottom: 6px;
     font-size: 14px;
+    color: #374151;
 }
 
 .input-wrapper {
@@ -115,6 +161,7 @@ a {
     width: 20px;
     height: 20px;
     fill: #9ca3af;
+    pointer-events: none;
 }
 
 .input-wrapper input {
@@ -124,11 +171,12 @@ a {
     border: 1px solid #d1d5db;
     font-size: 14px;
     outline: none;
-    transition: border 0.3s;
+    transition: border 0.3s, box-shadow 0.3s;
 }
 
 .input-wrapper input:focus {
     border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
 }
 
 .remember-forgot {
@@ -139,8 +187,25 @@ a {
     margin-bottom: 25px;
 }
 
+.remember-me {
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+
 .remember-me input {
     margin-right: 6px;
+    cursor: pointer;
+}
+
+.forgot-password {
+    color: #4f46e5;
+    transition: color 0.2s;
+}
+
+.forgot-password:hover {
+    color: #4338ca;
+    text-decoration: underline;
 }
 
 .login-btn {
@@ -158,32 +223,34 @@ a {
     gap: 8px;
     position: relative;
     transition: background 0.3s;
+    font-size: 14px;
 }
 
 .login-btn:hover {
     background-color: #4338ca;
 }
 
+.login-btn:disabled {
+    background-color: #9ca3af;
+    cursor: not-allowed;
+}
+
 .spinner {
     border: 3px solid #ffffff;
-    border-top: 3px solid #4f46e5;
+    border-top: 3px solid transparent;
     border-radius: 50%;
     width: 18px;
     height: 18px;
     animation: spin 1s linear infinite;
-    position: absolute;
-    right: 15px;
-    top: 50%;
-    transform: translateY(-50%);
 }
 
 .hidden {
-    display: none;
+    display: none !important;
 }
 
 @keyframes spin {
-    0% { transform: rotate(0deg);}
-    100% { transform: rotate(360deg);}
+    0% { transform: translateY(-50%) rotate(0deg); }
+    100% { transform: translateY(-50%) rotate(360deg); }
 }
 
 .login-footer {
@@ -193,27 +260,35 @@ a {
     color: #6b7280;
 }
 
-.login-container p.copyright {
+.copyright {
     text-align: center;
     margin-top: 20px;
     font-size: 12px;
-    color: #9ca3af;
+    color: rgba(255, 255, 255, 0.7);
 }
 
 /* =============================
-   DASHBOARD
+   DASHBOARD LAYOUT
 ============================= */
 .dashboard {
     display: flex;
     min-height: 100vh;
+    background-color: #f8f9fa;
 }
 
+/* =============================
+   SIDEBAR STYLES
+============================= */
 .sidebar {
-    width: 250px;
+    width: 260px;
     background-color: #1f2937;
     color: #ffffff;
     display: flex;
     flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
 }
 
 .sidebar-header {
@@ -224,18 +299,20 @@ a {
 .sidebar-logo {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .sidebar-logo svg {
     width: 36px;
     height: 36px;
     fill: #4f46e5;
+    flex-shrink: 0;
 }
 
 .sidebar-logo-text h2 {
     font-size: 18px;
     font-weight: 700;
+    margin-bottom: 2px;
 }
 
 .sidebar-logo-text p {
@@ -257,47 +334,63 @@ a {
     padding: 12px 20px;
     cursor: pointer;
     transition: background 0.2s;
+    color: #d1d5db;
+    position: relative;
 }
 
 .menu-item svg {
     width: 20px;
     height: 20px;
     fill: #9ca3af;
-}
-
-.menu-item.active,
-.menu-item:hover {
-    background-color: #4f46e5;
-}
-
-.menu-item.active svg,
-.menu-item:hover svg {
-    fill: #ffffff;
+    flex-shrink: 0;
 }
 
 .menu-item span {
     font-size: 14px;
+    font-weight: 500;
+}
+
+.menu-item.active {
+    background-color: #4f46e5;
+    color: #ffffff;
+}
+
+.menu-item.active svg {
+    fill: #ffffff;
+}
+
+.menu-item:hover:not(.active) {
+    background-color: #374151;
+    color: #ffffff;
+}
+
+.menu-item:hover:not(.active) svg {
+    fill: #d1d5db;
 }
 
 /* =============================
-   MAIN CONTENT
+   MAIN CONTENT AREA
 ============================= */
 .main-content {
     flex: 1;
-    padding: 25px;
+    padding: 30px;
     background-color: #f8f9fa;
+    overflow-y: auto;
 }
 
 .dashboard-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 25px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+    gap: 15px;
 }
 
 .dashboard-header h1 {
-    font-size: 24px;
+    font-size: 28px;
     font-weight: 700;
+    color: #0f172a;
 }
 
 .header-actions {
@@ -309,29 +402,31 @@ a {
 .user-info {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 12px;
 }
 
 .user-avatar {
-    width: 36px;
-    height: 36px;
-    background-color: #4f46e5;
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
     color: #ffffff;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
+    font-size: 16px;
 }
 
 .logout-btn {
-    padding: 8px 15px;
+    padding: 10px 20px;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     background-color: #ef4444;
     color: #ffffff;
     cursor: pointer;
     font-size: 14px;
+    font-weight: 600;
     transition: background 0.3s;
 }
 
@@ -339,80 +434,236 @@ a {
     background-color: #dc2626;
 }
 
-/* Stats grid */
+/* =============================
+   STATS GRID
+============================= */
 .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 20px;
     margin-bottom: 30px;
 }
 
 .stat-card {
     background-color: #ffffff;
-    padding: 15px 20px;
+    padding: 20px;
     border-radius: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
 
 .stat-header h3 {
     font-size: 14px;
     font-weight: 500;
     color: #6b7280;
+    margin-bottom: 8px;
 }
 
 .stat-value {
-    font-size: 20px;
+    font-size: 28px;
     font-weight: 700;
+    color: #0f172a;
 }
 
 .stat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
 }
 
-.stat-icon.blue { background-color: #3b82f6; fill: #ffffff; }
-.stat-icon.green { background-color: #10b981; fill: #ffffff; }
-.stat-icon.purple { background-color: #8b5cf6; fill: #ffffff; }
-.stat-icon.orange { background-color: #f97316; fill: #ffffff; }
+.stat-icon svg {
+    width: 24px;
+    height: 24px;
+}
 
-/* Content section */
+.stat-icon.blue { 
+    background-color: #dbeafe; 
+}
+.stat-icon.blue svg { 
+    fill: #3b82f6; 
+}
+
+.stat-icon.green { 
+    background-color: #d1fae5; 
+}
+.stat-icon.green svg { 
+    fill: #10b981; 
+}
+
+.stat-icon.purple { 
+    background-color: #e9d5ff; 
+}
+.stat-icon.purple svg { 
+    fill: #8b5cf6; 
+}
+
+.stat-icon.orange { 
+    background-color: #fed7aa; 
+}
+.stat-icon.orange svg { 
+    fill: #f97316; 
+}
+
+/* =============================
+   CONTENT SECTIONS
+============================= */
+.content-section {
+    background: #ffffff;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
 .content-section h2 {
-    font-size: 20px;
-    margin-bottom: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 15px;
+    color: #0f172a;
 }
 
 .content-section p {
     font-size: 14px;
-    margin-bottom: 6px;
+    color: #6b7280;
+    margin-bottom: 8px;
 }
 
 /* =============================
-   RESPONSIVE
+   RESPONSIVE DESIGN
 ============================= */
+@media (max-width: 1024px) {
+    .sidebar {
+        width: 220px;
+    }
+    
+    .main-content {
+        padding: 20px;
+    }
+}
+
 @media (max-width: 768px) {
     .dashboard {
         flex-direction: column;
     }
-
+    
     .sidebar {
         width: 100%;
-        flex-direction: row;
-        overflow-x: auto;
+        height: auto;
+        position: relative;
     }
-
+    
     .sidebar-menu {
         flex-direction: row;
+        overflow-x: auto;
+        padding: 10px 0;
     }
-
+    
     .menu-item {
         flex-direction: column;
-        padding: 10px;
+        padding: 10px 15px;
+        min-width: 80px;
+        text-align: center;
     }
+    
+    .menu-item span {
+        font-size: 12px;
+    }
+    
+    .dashboard-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    .login-card {
+        padding: 30px 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-container {
+        padding: 15px;
+    }
+    
+    .logo-container h1 {
+        font-size: 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =============================
+   UTILITY CLASSES
+============================= */
+.text-center {
+    text-align: center;
+}
+
+.text-right {
+    text-align: right;
+}
+
+.mt-10 {
+    margin-top: 10px;
+}
+
+.mt-20 {
+    margin-top: 20px;
+}
+
+.mb-10 {
+    margin-bottom: 10px;
+}
+
+.mb-20 {
+    margin-bottom: 20px;
+}
+
+.flex {
+    display: flex;
+}
+
+.gap-10 {
+    gap: 10px;
+}
+
+.gap-20 {
+    gap: 20px;
+}
+
+/* =============================
+   SCROLLBAR STYLING
+============================= */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #9ca3af;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #6b7280;
 }
