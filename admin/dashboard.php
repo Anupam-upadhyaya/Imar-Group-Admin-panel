@@ -51,11 +51,17 @@ $stats['admin_count'] = $result->fetch_assoc()['count'] ?? 0;
 // Recent inquiries
 $recent_inquiries = [];
 $result = $conn->query("
-    SELECT id, name, email, subject, status, created_at 
-    FROM inquiries 
-    ORDER BY created_at DESC 
+    SELECT 
+        id,
+        CONCAT(first_name, ' ', last_name) AS name,
+        email,
+        status,
+        created_at
+    FROM inquiries
+    ORDER BY created_at DESC
     LIMIT 5
 ");
+
 while ($row = $result->fetch_assoc()) {
     $recent_inquiries[] = $row;
 }
@@ -200,7 +206,7 @@ if ($hour < 12) {
                 <svg viewBox="0 0 24 24">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
-                <span>Create Post</span>
+                <span>Create Blog</span>
             </a>
             <a href="users.php" class="quick-action-btn">
                 <svg viewBox="0 0 24 24">
