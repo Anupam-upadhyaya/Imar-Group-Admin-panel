@@ -65,25 +65,6 @@ $csrf_token = Auth::generateCSRFToken();
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Login - IMAR Group Admin Panel</title>
     <link rel="stylesheet" href="../css/styles.css">
-    <style>
-        /* Alert styles */
-        .alert {
-            padding: 12px 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 14px;
-        }
-        .alert-error {
-            background-color: #fee;
-            color: #c33;
-            border: 1px solid #fcc;
-        }
-        .alert-success {
-            background-color: #efe;
-            color: #3c3;
-            border: 1px solid #cfc;
-        }
-    </style>
 </head>
 <body>
 

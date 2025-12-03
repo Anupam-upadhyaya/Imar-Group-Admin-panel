@@ -67,10 +67,20 @@ $result = $conn->query("
     FROM activity_logs al 
     LEFT JOIN admins a ON al.admin_id = a.id 
     ORDER BY al.created_at DESC 
-    LIMIT 10
+    LIMIT 8
 ");
 while ($row = $result->fetch_assoc()) {
     $recent_activities[] = $row;
+}
+
+// Get greeting based on time
+$hour = date('H');
+if ($hour < 12) {
+    $greeting = 'Good Morning';
+} elseif ($hour < 18) {
+    $greeting = 'Good Afternoon';
+} else {
+    $greeting = 'Good Evening';
 }
 ?>
 <!DOCTYPE html>
@@ -79,7 +89,8 @@ while ($row = $result->fetch_assoc()) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - IMAR Group Admin</title>
-    <link rel="stylesheet" href="../css/Style.css">
+    <link rel="stylesheet" href="../css/styles.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
 </head>
 <body>
 
@@ -150,6 +161,7 @@ while ($row = $result->fetch_assoc()) {
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
+        <!-- Header -->
         <div class="dashboard-header">
             <h1>Dashboard</h1>
             <div class="header-actions">
@@ -164,79 +176,160 @@ while ($row = $result->fetch_assoc()) {
             </div>
         </div>
 
-        <!-- STATS GRID -->
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <h2><?php echo $greeting; ?>, <?php echo htmlspecialchars(explode(' ', $admin_name)[0]); ?>! 👋</h2>
+            <p>Here's what's happening with your projects today.</p>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="quick-actions">
+            <a href="inquiries.php" class="quick-action-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+                </svg>
+                <span>View Inquiries</span>
+            </a>
+            <a href="gallery.php" class="quick-action-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                </svg>
+                <span>Upload Image</span>
+            </a>
+            <a href="blog.php" class="quick-action-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+                </svg>
+                <span>Create Post</span>
+            </a>
+            <a href="users.php" class="quick-action-btn">
+                <svg viewBox="0 0 24 24">
+                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+                <span>Add User</span>
+            </a>
+        </div>
+
+        <!-- Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div>
-                    <div class="stat-header">
+                <div class="stat-content">
+                    <div class="stat-info">
                         <h3>New Inquiries</h3>
+                        <div class="stat-value"><?php echo $stats['new_inquiries']; ?></div>
+                        <div class="stat-change positive">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7 14l5-5 5 5z"/>
+                            </svg>
+                            <span>+12% from last week</span>
+                        </div>
                     </div>
-                    <div class="stat-value"><?php echo $stats['new_inquiries']; ?></div>
-                </div>
-                <div class="stat-icon blue">
-                    <svg width="24" height="24" viewBox="0 0 24 24">
-                        <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-                    </svg>
+                    <div class="stat-icon blue">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
             <div class="stat-card">
-                <div>
-                    <div class="stat-header">
+                <div class="stat-content">
+                    <div class="stat-info">
                         <h3>Gallery Images</h3>
+                        <div class="stat-value"><?php echo $stats['gallery_count']; ?></div>
+                        <div class="stat-change positive">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7 14l5-5 5 5z"/>
+                            </svg>
+                            <span>+5 this month</span>
+                        </div>
                     </div>
-                    <div class="stat-value"><?php echo $stats['gallery_count']; ?></div>
-                </div>
-                <div class="stat-icon green">
-                    <svg width="24" height="24" viewBox="0 0 24 24">
-                        <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
-                    </svg>
+                    <div class="stat-icon green">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
             <div class="stat-card">
-                <div>
-                    <div class="stat-header">
+                <div class="stat-content">
+                    <div class="stat-info">
                         <h3>Published Posts</h3>
+                        <div class="stat-value"><?php echo $stats['blog_count']; ?></div>
+                        <div class="stat-change positive">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M7 14l5-5 5 5z"/>
+                            </svg>
+                            <span>+2 this week</span>
+                        </div>
                     </div>
-                    <div class="stat-value"><?php echo $stats['blog_count']; ?></div>
-                </div>
-                <div class="stat-icon purple">
-                    <svg width="24" height="24" viewBox="0 0 24 24">
-                        <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/>
-                    </svg>
+                    <div class="stat-icon purple">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
 
             <div class="stat-card">
-                <div>
-                    <div class="stat-header">
+                <div class="stat-content">
+                    <div class="stat-info">
                         <h3>Active Users</h3>
+                        <div class="stat-value"><?php echo $stats['admin_count']; ?></div>
+                        <div class="stat-change">
+                            <span>Total admin users</span>
+                        </div>
                     </div>
-                    <div class="stat-value"><?php echo $stats['admin_count']; ?></div>
-                </div>
-                <div class="stat-icon orange">
-                    <svg width="24" height="24" viewBox="0 0 24 24">
-                        <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3z"/>
-                    </svg>
+                    <div class="stat-icon orange">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3z"/>
+                        </svg>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- CONTENT SECTIONS -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px;">
+        <!-- Content Grid -->
+        <div class="two-column-grid">
             <!-- Recent Inquiries -->
-            <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <h2 style="font-size: 18px; margin-bottom: 15px;">Recent Inquiries</h2>
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h2>Recent Inquiries</h2>
+                    <a href="inquiries.php" class="view-all">View All →</a>
+                </div>
+                
                 <?php if (empty($recent_inquiries)): ?>
-                    <p style="color: #6b7280; font-size: 14px;">No inquiries yet.</p>
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
+                        </svg>
+                        <h3>No Inquiries Yet</h3>
+                        <p>New customer inquiries will appear here</p>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($recent_inquiries as $inquiry): ?>
-                        <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-                            <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($inquiry['name']); ?></div>
-                            <div style="font-size: 13px; color: #6b7280;"><?php echo htmlspecialchars($inquiry['subject']); ?></div>
-                            <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
-                                <?php echo date('M d, Y h:i A', strtotime($inquiry['created_at'])); ?>
+                        <div class="inquiry-item">
+                            <div class="inquiry-header">
+                                <div class="inquiry-name"><?php echo htmlspecialchars($inquiry['name']); ?></div>
+                                <span class="inquiry-badge <?php echo strtolower($inquiry['status']); ?>">
+                                    <?php echo ucfirst($inquiry['status']); ?>
+                                </span>
+                            </div>
+                            <div class="inquiry-subject"><?php echo htmlspecialchars($inquiry['subject'] ?? 'No subject'); ?></div>
+                            <div class="inquiry-meta">
+                                <span>
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                                    </svg>
+                                    <?php echo htmlspecialchars($inquiry['email']); ?>
+                                </span>
+                                <span>
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    </svg>
+                                    <?php echo date('M d, Y', strtotime($inquiry['created_at'])); ?>
+                                </span>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -244,22 +337,42 @@ while ($row = $result->fetch_assoc()) {
             </div>
 
             <!-- Recent Activities -->
-            <div style="background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
-                <h2 style="font-size: 18px; margin-bottom: 15px;">Recent Activities</h2>
+            <div class="content-card">
+                <div class="content-card-header">
+                    <h2>Recent Activities</h2>
+                </div>
+                
                 <?php if (empty($recent_activities)): ?>
-                    <p style="color: #6b7280; font-size: 14px;">No activities yet.</p>
+                    <div class="empty-state">
+                        <svg viewBox="0 0 24 24">
+                            <path d="M9 11H7v2h2v-2zm4 0h-2v2h2v-2zm4 0h-2v2h2v-2zm2-7h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V9h14v11z"/>
+                        </svg>
+                        <h3>No Activities Yet</h3>
+                        <p>System activities will be logged here</p>
+                    </div>
                 <?php else: ?>
                     <?php foreach ($recent_activities as $activity): ?>
-                        <div style="padding: 10px 0; border-bottom: 1px solid #e5e7eb;">
-                            <div style="font-size: 14px;">
-                                <strong><?php echo htmlspecialchars($activity['full_name'] ?? 'System'); ?></strong>
-                                <?php echo htmlspecialchars($activity['action']); ?>
-                                <?php if ($activity['table_affected']): ?>
-                                    in <em><?php echo htmlspecialchars($activity['table_affected']); ?></em>
-                                <?php endif; ?>
+                        <div class="activity-item">
+                            <div class="activity-icon">
+                                <?php 
+                                $name = $activity['full_name'] ?? 'System';
+                                echo strtoupper(substr($name, 0, 1)); 
+                                ?>
                             </div>
-                            <div style="font-size: 12px; color: #9ca3af; margin-top: 4px;">
-                                <?php echo date('M d, Y h:i A', strtotime($activity['created_at'])); ?>
+                            <div class="activity-content">
+                                <div class="activity-text">
+                                    <strong><?php echo htmlspecialchars($activity['full_name'] ?? 'System'); ?></strong>
+                                    <?php echo htmlspecialchars($activity['action']); ?>
+                                    <?php if ($activity['table_affected']): ?>
+                                        in <em><?php echo htmlspecialchars($activity['table_affected']); ?></em>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="activity-time">
+                                    <svg viewBox="0 0 24 24">
+                                        <path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67z"/>
+                                    </svg>
+                                    <?php echo date('M d, h:i A', strtotime($activity['created_at'])); ?>
+                                </div>
                             </div>
                         </div>
                     <?php endforeach; ?>
