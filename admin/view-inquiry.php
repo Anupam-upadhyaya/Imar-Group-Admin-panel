@@ -91,10 +91,10 @@ if ($inquiry['status'] === 'new') {
         
         .inquiry-header {
             display: flex;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: start;
-            margin-bottom: 25px;
-            padding-bottom: 20px;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #f3f4f6;
         }
         
@@ -114,6 +114,7 @@ if ($inquiry['status'] === 'new') {
             font-size: 13px;
             font-weight: 600;
             text-transform: uppercase;
+            margin-left: 125px;
         }
         
         .status-badge.new { background: #dbeafe; color: #1e40af; }
@@ -308,110 +309,98 @@ if ($inquiry['status'] === 'new') {
         </div>
     </div>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
-        <div class="dashboard-header">
-            <h1>Inquiry Details</h1>
-            <div class="header-actions">
-                <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
-                    <div>
-                        <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
-                    </div>
+    <div class="dashboard-header">
+        <h1>Inquiry Details</h1>
+        <div class="header-actions">
+            <div class="user-info">
+                <div class="user-avatar"><?php echo $admin_initials; ?></div>
+                <div>
+                    <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
+                    <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
                 </div>
-                <a href="logout.php" class="logout-btn">Logout</a>
             </div>
+            <a href="logout.php" class="logout-btn">Logout</a>
         </div>
+    </div>
 
-        <div class="inquiry-detail-container">
-            <a href="inquiries.php" class="back-link">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
-                </svg>
-                Back to Inquiries
-            </a>
+    <div class="inquiry-detail-container">
+        <a href="inquiries.php" class="back-link">&larr; Back to Inquiries</a>
 
-            <?php if (isset($success_message)): ?>
-                <div class="success-message"><?php echo $success_message; ?></div>
-            <?php endif; ?>
+        <?php if (isset($success_message)): ?>
+            <div class="success-message"><?php echo $success_message; ?></div>
+        <?php endif; ?>
 
-            <!-- Inquiry Details Card -->
-            <div class="inquiry-card">
-                <div class="inquiry-header">
-                    <div class="inquiry-title">
-                        <h2>Inquiry #<?php echo $inquiry['id']; ?></h2>
-                        <div class="inquiry-meta">
-                            Submitted on <?php echo date('F d, Y \a\t h:i A', strtotime($inquiry['created_at'])); ?>
-                        </div>
-                    </div>
-                    <span class="status-badge <?php echo $inquiry['status']; ?>">
-                        <?php echo ucfirst($inquiry['status']); ?>
-                    </span>
-                </div>
-
-                <!-- Customer Information -->
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>Full Name</label>
-                        <value><?php echo htmlspecialchars($inquiry['first_name'] . ' ' . $inquiry['last_name']); ?></value>
-                    </div>
-                    <div class="info-item">
-                        <label>Email Address</label>
-                        <value><a href="mailto:<?php echo htmlspecialchars($inquiry['email']); ?>" style="color: #4f46e5;"><?php echo htmlspecialchars($inquiry['email']); ?></a></value>
-                    </div>
-                    <div class="info-item">
-                        <label>Phone Number</label>
-                        <value><a href="tel:<?php echo htmlspecialchars($inquiry['phone']); ?>" style="color: #4f46e5;"><?php echo htmlspecialchars($inquiry['phone']); ?></a></value>
-                    </div>
-                <!-- Message -->
-                <div class="message-section">
-                    <label>Message / Inquiry</label>
-                    <div class="message-box">
-                        <?php echo nl2br(htmlspecialchars($inquiry['message'])); ?>
+        <div class="inquiry-card">
+            <!-- Header -->
+            <div class="inquiry-header">
+                <div class="inquiry-title">
+                    <h2>Inquiry #<?php echo $inquiry['id']; ?></h2>
+                    <div class="inquiry-meta">
+                        Submitted on <?php echo date('F d, Y \a\t h:i A', strtotime($inquiry['created_at'])); ?>
                     </div>
                 </div>
+                <span class="status-badge <?php echo $inquiry['status']; ?>">
+                    <?php echo ucfirst($inquiry['status']); ?>
+                </span>
+            </div>
 
-                <!-- Additional Info -->
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>IP Address</label>
-                        <value><?php echo htmlspecialchars($inquiry['ip_address']); ?></value>
-                    </div>
-                    <div class="info-item">
-                        <label>Last Updated</label>
-                        <value><?php echo date('M d, Y h:i A', strtotime($inquiry['updated_at'])); ?></value>
-                    </div>
+            <!-- Customer Info -->
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Full Name</label>
+                    <value><?php echo htmlspecialchars($inquiry['first_name'] . ' ' . $inquiry['last_name']); ?></value>
                 </div>
-
-                <!-- Action Section -->
-                <div class="action-section">
-                    <h3 style="margin-bottom: 20px;">Update Inquiry</h3>
-                    <form method="POST" action="">
-                        <div class="form-group">
-                            <label for="status">Status</label>
-                            <select name="status" id="status" required>
-                                <option value="new" <?php echo $inquiry['status'] === 'new' ? 'selected' : ''; ?>>New</option>
-                                <option value="read" <?php echo $inquiry['status'] === 'read' ? 'selected' : ''; ?>>Read</option>
-                                <option value="responded" <?php echo $inquiry['status'] === 'responded' ? 'selected' : ''; ?>>Responded</option>
-                                <option value="archived" <?php echo $inquiry['status'] === 'archived' ? 'selected' : ''; ?>>Archived</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="admin_notes">Admin Notes (Optional)</label>
-                            <textarea name="admin_notes" id="admin_notes" rows="4" placeholder="Add internal notes about this inquiry..."><?php echo htmlspecialchars($inquiry['admin_notes'] ?? ''); ?></textarea>
-                        </div>
-
-                        <div class="btn-group">
-                            <button type="submit" name="update_status" class="btn btn-primary">Update Inquiry</button>
-                            <a href="inquiries.php" class="btn btn-secondary">Cancel</a>
-                        </div>
-                    </form>
+                <div class="info-item">
+                    <label>Email Address</label>
+                    <value><a href="mailto:<?php echo htmlspecialchars($inquiry['email']); ?>" style="color: #4f46e5;"><?php echo htmlspecialchars($inquiry['email']); ?></a></value>
                 </div>
+                <div class="info-item">
+                    <label>Phone Number</label>
+                    <value><a href="tel:<?php echo htmlspecialchars($inquiry['phone']); ?>" style="color: #4f46e5;"><?php echo htmlspecialchars($inquiry['phone']); ?></a></value>
+                </div>
+                <div class="info-item">
+                    <label>IP Address</label>
+                    <value><?php echo htmlspecialchars($inquiry['ip_address']); ?></value>
+                </div>
+            </div>
+
+            <!-- Message Section -->
+            <div class="message-section">
+                <label>Message / Inquiry</label>
+                <div class="message-box">
+                    <?php echo nl2br(htmlspecialchars($inquiry['message'])); ?>
+                </div>
+            </div>
+
+            <!-- Admin Notes & Update Form -->
+            <div class="action-section">
+                <h3 style="margin-bottom: 20px;">Update Inquiry</h3>
+                <form method="POST" action="">
+                    <div class="form-group">
+                        <label for="status">Status</label>
+                        <select name="status" id="status" required>
+                            <option value="new" <?php echo $inquiry['status'] === 'new' ? 'selected' : ''; ?>>New</option>
+                            <option value="read" <?php echo $inquiry['status'] === 'read' ? 'selected' : ''; ?>>Read</option>
+                            <option value="responded" <?php echo $inquiry['status'] === 'responded' ? 'selected' : ''; ?>>Responded</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="admin_notes">Admin Notes (Optional)</label>
+                        <textarea name="admin_notes" id="admin_notes" rows="4" placeholder="Add internal notes about this inquiry..."><?php echo htmlspecialchars($inquiry['admin_notes'] ?? ''); ?></textarea>
+                    </div>
+
+                    <div class="btn-group">
+                        <button type="submit" name="update_status" class="btn btn-primary">Update Inquiry</button>
+                        <a href="inquiries.php" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
+
 </div>
 
 </body>

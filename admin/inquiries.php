@@ -376,39 +376,44 @@ $counts = [
                             <th>ID</th>
                             <th>Name</th>
                             <th>Contact</th>
-                            <th>Appointment</th>
                             <th>Status</th>
                             <th>Submitted</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($inquiries as $inquiry): ?>
-                            <tr>
-                                <td>#<?php echo $inquiry['id']; ?></td>
-                                <td>
-                                    <div class="inquiry-name">
-                                        <?php echo htmlspecialchars($inquiry['first_name'] . ' ' . $inquiry['last_name']); ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div><?php echo htmlspecialchars($inquiry['email']); ?></div>
-                                    <div class="inquiry-email"><?php echo htmlspecialchars($inquiry['phone']); ?></div>
-                                </td>
-                                <td>
-                                    <?php echo $inquiry['appointment_date'] ? date('M d, Y', strtotime($inquiry['appointment_date'])) : '—'; ?>
-                                </td>
-                                <td>
-                                    <span class="status-badge <?php echo $inquiry['status']; ?>">
-                                        <?php echo ucfirst($inquiry['status']); ?>
-                                    </span>
-                                </td>
-                                <td><?php echo date('M d, Y', strtotime($inquiry['created_at'])); ?></td>
-                                <td>
-                                    <a href="view-inquiry.php?id=<?php echo $inquiry['id']; ?>" class="action-btn view">View</a>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
+<?php foreach ($inquiries as $inquiry): ?>
+    <tr>
+        <td>#<?php echo $inquiry['id']; ?></td>
+        <td>
+            <div class="inquiry-name">
+                <?php echo htmlspecialchars($inquiry['first_name'] . ' ' . $inquiry['last_name']); ?>
+            </div>
+        </td>
+        <td>
+            <div><?php echo htmlspecialchars($inquiry['email']); ?></div>
+            <div class="inquiry-email"><?php echo htmlspecialchars($inquiry['phone']); ?></div>
+        </td>
+        <td>
+            <span class="status-badge <?php echo $inquiry['status']; ?>">
+                <?php echo ucfirst($inquiry['status']); ?>
+            </span>
+        </td>
+        <td><?php echo date('M d, Y', strtotime($inquiry['created_at'])); ?></td>
+        <td>
+            <?php 
+            // Show admin notes if available, otherwise display a placeholder
+            echo !empty($inquiry['admin_notes']) 
+                ? htmlspecialchars($inquiry['admin_notes']) 
+                : '<em>No notes</em>'; 
+            ?>
+        </td>
+        <td>
+            <a href="view-inquiry.php?id=<?php echo $inquiry['id']; ?>" class="action-btn view">View</a>
+        </td>
+    </tr>
+<?php endforeach; ?>
+
                     </tbody>
                 </table>
             <?php endif; ?>

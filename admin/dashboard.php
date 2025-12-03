@@ -322,7 +322,6 @@ if ($hour < 12) {
                                     <?php echo ucfirst($inquiry['status']); ?>
                                 </span>
                             </div>
-                            <div class="inquiry-subject"><?php echo htmlspecialchars($inquiry['subject'] ?? 'No subject'); ?></div>
                             <div class="inquiry-meta">
                                 <span>
                                     <svg viewBox="0 0 24 24">
