@@ -70,12 +70,12 @@ if (!$inquiry) {
 }
 
 // Mark as read if it's new
+// When fetching the inquiry
 if ($inquiry['status'] === 'new') {
-    $stmt = $conn->prepare("UPDATE inquiries SET status = 'read', read_at = NOW() WHERE id = ?");
+    $stmt = $conn->prepare("UPDATE inquiries SET status = 'reading', read_at = NOW() WHERE id = ?");
     $stmt->bind_param("i", $inquiry_id);
     $stmt->execute();
-    $inquiry['status'] = 'read';
-    
+    $inquiry['status'] = 'reading'; // update local variable for display
     // Log activity
     $auth->logActivity($admin_id, 'viewed_inquiry', 'inquiries', $inquiry_id);
 }
@@ -130,9 +130,8 @@ if ($inquiry['status'] === 'new') {
         }
         
         .status-badge.new { background: #dbeafe; color: #1e40af; }
-        .status-badge.read { background: #e0e7ff; color: #4338ca; }
+        .status-badge.reading { background: #fc900259; color: #fc9002ff; }
         .status-badge.responded { background: #d1fae5; color: #065f46; }
-        .status-badge.archived { background: #f3f4f6; color: #6b7280; }
         
         .info-grid {
             display: grid;
@@ -393,7 +392,7 @@ if ($inquiry['status'] === 'new') {
                         <label for="status">Status</label>
                         <select name="status" id="status" required>
                             <option value="new" <?php echo $inquiry['status'] === 'new' ? 'selected' : ''; ?>>New</option>
-                            <option value="read" <?php echo $inquiry['status'] === 'read' ? 'selected' : ''; ?>>Read</option>
+                            <option value="reading" <?php echo $inquiry['status'] === 'reading' ? 'selected' : ''; ?>>Reading</option>
                             <option value="responded" <?php echo $inquiry['status'] === 'responded' ? 'selected' : ''; ?>>Responded</option>
                         </select>
                     </div>

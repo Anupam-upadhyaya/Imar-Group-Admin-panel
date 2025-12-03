@@ -61,7 +61,7 @@ $inquiries = $result->fetch_all(MYSQLI_ASSOC);
 $counts = [
     'all' => $conn->query("SELECT COUNT(*) as count FROM inquiries")->fetch_assoc()['count'],
     'new' => $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'")->fetch_assoc()['count'],
-    'read' => $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'read'")->fetch_assoc()['count'],
+    'reading' => $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'reading'")->fetch_assoc()['count'],
     'responded' => $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'responded'")->fetch_assoc()['count']
 ];
 ?>
@@ -204,9 +204,9 @@ $counts = [
             color: #1e40af;
         }
         
-        .status-badge.read {
-            background: #e0e7ff;
-            color: #4338ca;
+        .status-badge.reading {
+            background: #fc900259;
+            color: #fc9002ff;
         }
         
         .status-badge.responded {
