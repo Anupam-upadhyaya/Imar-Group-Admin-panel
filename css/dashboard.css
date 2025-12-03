@@ -471,3 +471,19 @@
         border: 1px solid #e5e7eb;
     }
 }
+
+.btn-delete {
+    background-color: #dc2626 !important;  /* red */
+    color: white !important;
+}
+
+.btn-delete:hover {
+    background-color: #b91c1c !important;  /* darker red */
+}
+
+/* Button group spacing */
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}

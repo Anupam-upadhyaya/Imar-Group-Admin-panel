@@ -44,6 +44,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     
     $success_message = "Inquiry updated successfully!";
 }
+// Handle deletion
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inquiry'])) {
+    $stmt = $conn->prepare("DELETE FROM inquiries WHERE id = ?");
+    $stmt->bind_param("i", $inquiry_id);
+    $stmt->execute();
+
+    // Log activity
+    $auth->logActivity($admin_id, 'deleted_inquiry', 'inquiries', $inquiry_id);
+
+    header('Location: inquiries.php?deleted=1');
+    exit();
+}
 
 // Get inquiry details
 $stmt = $conn->prepare("SELECT * FROM inquiries WHERE id = ?");
@@ -391,11 +403,20 @@ if ($inquiry['status'] === 'new') {
                         <textarea name="admin_notes" id="admin_notes" rows="4" placeholder="Add internal notes about this inquiry..."><?php echo htmlspecialchars($inquiry['admin_notes'] ?? ''); ?></textarea>
                     </div>
 
-                    <div class="btn-group">
-                        <button type="submit" name="update_status" class="btn btn-primary">Update Inquiry</button>
-                        <a href="inquiries.php" class="btn btn-secondary">Cancel</a>
-                    </div>
-                </form>
+              <div class="btn-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+    <!-- Update Form -->
+    <form method="POST" action="">
+        <button type="submit" name="update_status" class="btn btn-primary">Update Inquiry</button>
+    </form>
+
+    <!-- Delete Form -->
+    <form method="POST" action="" onsubmit="return confirm('Are you sure you want to delete this inquiry?');">
+        <input type="hidden" name="delete_inquiry" value="1">
+        <button type="submit" class="btn btn-delete">Delete Inquiry</button>
+    </form>
+</div>
+
+
             </div>
         </div>
     </div>
