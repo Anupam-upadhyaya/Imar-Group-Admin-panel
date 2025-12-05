@@ -342,8 +342,8 @@ $counts = [
                 <a href="?filter=new" class="filter-tab <?php echo $filter === 'new' ? 'active' : ''; ?>">
                     New <span class="filter-badge"><?php echo $counts['new']; ?></span>
                 </a>
-                <a href="?filter=read" class="filter-tab <?php echo $filter === 'read' ? 'active' : ''; ?>">
-                    Read <span class="filter-badge"><?php echo $counts['read']; ?></span>
+                <a href="?filter=reading" class="filter-tab <?php echo $filter === 'reading' ? 'active' : ''; ?>">
+                    Reading <span class="filter-badge"><?php echo $counts['reading']; ?></span>
                 </a>
                 <a href="?filter=responded" class="filter-tab <?php echo $filter === 'responded' ? 'active' : ''; ?>">
                     Responded <span class="filter-badge"><?php echo $counts['responded']; ?></span>
