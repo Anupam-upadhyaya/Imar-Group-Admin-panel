@@ -1,262 +1,158 @@
 <?php
 /**
- * Database Export Script
- * File: database/db-export.php
- * 
- * Usage: Run this before pushing to Git
- * URL: http://localhost/Imar_Group_Admin_panel/database/db-export.php
+ * db-export.php
+ * Full DB export: structure + data
+ * Usage: http://localhost/Imar_Group_Admin_panel/database/db-export.php
+ * IMPORTANT: Run locally only.
  */
 
-// Security: Only allow local access
+set_time_limit(0);
+ini_set('memory_limit', '512M');
+
+// Local-only guard
 if ($_SERVER['REMOTE_ADDR'] !== '127.0.0.1' && $_SERVER['REMOTE_ADDR'] !== '::1') {
+    http_response_code(403);
     die('Access denied. This script can only be run locally.');
 }
 
 define('SECURE_ACCESS', true);
-require_once '../config/config.php';
+require_once '../config/config.php'; // must provide $conn and DB_NAME
 
-// Create backups directory if it doesn't exist
-$backupDir = __DIR__ . '/backups';
-if (!is_dir($backupDir)) {
-    mkdir($backupDir, 0755, true);
+if (!isset($conn) || !($conn instanceof mysqli)) {
+    die('Database connection ($conn) not found. Check ../config/config.php');
 }
 
-// Backup filename with timestamp
+$backupDir = __DIR__ . '/backups';
+if (!is_dir($backupDir)) {
+    if (!mkdir($backupDir, 0755, true)) {
+        die('Failed to create backups directory: ' . $backupDir);
+    }
+}
+
 $timestamp = date('Y-m-d_His');
 $backupFile = $backupDir . '/backup_' . $timestamp . '.sql';
 $latestFile = $backupDir . '/latest.sql';
 
-// Get all tables
+$sqlOut = [];
+$sqlOut[] = "-- =====================================================";
+$sqlOut[] = "-- IMAR Admin Database Backup";
+$sqlOut[] = "-- Generated: " . date('Y-m-d H:i:s');
+$sqlOut[] = "-- Database: " . (defined('DB_NAME') ? DB_NAME : '(unknown)');
+$sqlOut[] = "-- =====================================================\n";
+$sqlOut[] = "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";";
+$sqlOut[] = "SET time_zone = \"+00:00\";\n";
+$sqlOut[] = "/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;";
+$sqlOut[] = "/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;";
+$sqlOut[] = "/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;";
+$sqlOut[] = "/*!40101 SET NAMES utf8mb4 */;\n";
+
+$dbName = defined('DB_NAME') ? DB_NAME : $conn->query('SELECT DATABASE()')->fetch_row()[0];
+$sqlOut[] = "-- Database: `" . $dbName . "`";
+$sqlOut[] = "CREATE DATABASE IF NOT EXISTS `" . $dbName . "` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;";
+$sqlOut[] = "USE `" . $dbName . "`;\n";
+
+// Get tables
 $tables = [];
-$result = $conn->query('SHOW TABLES');
-while ($row = $result->fetch_array()) {
+$res = $conn->query('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"');
+if (!$res) {
+    die('Failed to list tables: ' . $conn->error);
+}
+while ($row = $res->fetch_array(MYSQLI_NUM)) {
     $tables[] = $row[0];
 }
 
-// Start SQL content
-$sqlContent = "-- =====================================================\n";
-$sqlContent .= "-- IMAR Admin Database Backup\n";
-$sqlContent .= "-- Generated: " . date('Y-m-d H:i:s') . "\n";
-$sqlContent .= "-- Database: " . DB_NAME . "\n";
-$sqlContent .= "-- =====================================================\n\n";
-
-$sqlContent .= "SET SQL_MODE = \"NO_AUTO_VALUE_ON_ZERO\";\n";
-$sqlContent .= "SET time_zone = \"+00:00\";\n\n";
-
-$sqlContent .= "-- Database: `" . DB_NAME . "`\n";
-$sqlContent .= "CREATE DATABASE IF NOT EXISTS `" . DB_NAME . "` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\n";
-$sqlContent .= "USE `" . DB_NAME . "`;\n\n";
-
-// Export each table
+// Export each table: DROP, CREATE, DATA
 foreach ($tables as $table) {
-    // Get CREATE TABLE statement
-    $result = $conn->query("SHOW CREATE TABLE `$table`");
-    $row = $result->fetch_array();
-    
-    $sqlContent .= "-- =====================================================\n";
-    $sqlContent .= "-- Table structure for table `$table`\n";
-    $sqlContent .= "-- =====================================================\n\n";
-    
-    $sqlContent .= "DROP TABLE IF EXISTS `$table`;\n";
-    $sqlContent .= $row[1] . ";\n\n";
-    
-    // Get table data
-    $result = $conn->query("SELECT * FROM `$table`");
+    // CREATE TABLE
+    $row = $conn->query("SHOW CREATE TABLE `" . $conn->real_escape_string($table) . "`");
+    if (!$row) {
+        die("SHOW CREATE TABLE failed for {$table}: " . $conn->error);
+    }
+    $rowArr = $row->fetch_array(MYSQLI_NUM);
+    $createSQL = $rowArr[1];
+
+    $sqlOut[] = "-- -----------------------------------------------------";
+    $sqlOut[] = "-- Table structure for table `$table`";
+    $sqlOut[] = "-- -----------------------------------------------------\n";
+
+    $sqlOut[] = "DROP TABLE IF EXISTS `" . $table . "`;";
+    $sqlOut[] = $createSQL . ";\n";
+
+    // DATA
+    $result = $conn->query("SELECT * FROM `" . $conn->real_escape_string($table) . "`");
+    if (!$result) {
+        die("SELECT failed for {$table}: " . $conn->error);
+    }
+
     $numRows = $result->num_rows;
-    
     if ($numRows > 0) {
-        $sqlContent .= "-- Dumping data for table `$table`\n\n";
-        
-        // Get column names
-        $columns = [];
-        $fields = $conn->query("SHOW COLUMNS FROM `$table`");
-        while ($field = $fields->fetch_array()) {
-            $columns[] = $field[0];
+        $cols = [];
+        $fieldsRes = $conn->query("SHOW COLUMNS FROM `" . $conn->real_escape_string($table) . "`");
+        while ($field = $fieldsRes->fetch_assoc()) {
+            $cols[] = $field['Field'];
         }
-        
-        // Insert data
-        while ($row = $result->fetch_array(MYSQLI_NUM)) {
-            $sqlContent .= "INSERT INTO `$table` (`" . implode('`, `', $columns) . "`) VALUES (";
-            
+        $colList = "`" . implode("`, `", $cols) . "`";
+
+        $sqlOut[] = "-- Dumping data for table `$table`";
+        // fetch rows and write single-row INSERTs (safe) — could be batched
+        while ($rowData = $result->fetch_assoc()) {
             $values = [];
-            foreach ($row as $value) {
-                if ($value === null) {
-                    $values[] = 'NULL';
+            foreach ($cols as $col) {
+                $v = $rowData[$col];
+                if ($v === null) {
+                    $values[] = "NULL";
                 } else {
-                    $values[] = "'" . $conn->real_escape_string($value) . "'";
+                    $values[] = "'" . $conn->real_escape_string($v) . "'";
                 }
             }
-            
-            $sqlContent .= implode(', ', $values) . ");\n";
+            $sqlOut[] = "INSERT INTO `" . $table . "` (" . $colList . ") VALUES (" . implode(", ", $values) . ");";
         }
-        
-        $sqlContent .= "\n";
+        $sqlOut[] = ""; // blank line
     }
 }
 
-// Save to timestamped file
-file_put_contents($backupFile, $sqlContent);
-
-// Save to latest.sql (for easy sync)
-file_put_contents($latestFile, $sqlContent);
-
-// Also create a .gitignore to exclude timestamped backups
-$gitignore = $backupDir . '/.gitignore';
-if (!file_exists($gitignore)) {
-    file_put_contents($gitignore, "backup_*.sql\n");
+// Routines/triggers/views (optional) — attempt to export triggers
+$triggersRes = $conn->query("SHOW TRIGGERS");
+if ($triggersRes && $triggersRes->num_rows > 0) {
+    $sqlOut[] = "-- -----------------------------------------------------";
+    $sqlOut[] = "-- Triggers";
+    $sqlOut[] = "-- -----------------------------------------------------\n";
+    while ($tr = $triggersRes->fetch_assoc()) {
+        // MySQL SHOW TRIGGERS output is limited; best to fetch trigger body via INFORMATION_SCHEMA.ROUTINES or SHOW CREATE TRIGGER (if available)
+        $tname = $tr['Trigger'];
+        $show = $conn->query("SHOW CREATE TRIGGER `" . $conn->real_escape_string($tname) . "`");
+        if ($show && $showRow = $show->fetch_array(MYSQLI_NUM)) {
+            $sqlOut[] = $showRow[2] . ";";
+        }
+    }
+    $sqlOut[] = "";
 }
 
+// Footer
+$sqlOut[] = "/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;";
+$sqlOut[] = "/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;";
+$sqlOut[] = "/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;";
+
+// Write to files
+$finalSql = implode("\n", $sqlOut) . "\n";
+
+if (file_put_contents($backupFile, $finalSql) === false) {
+    die("Failed to write backup file: {$backupFile}");
+}
+if (file_put_contents($latestFile, $finalSql) === false) {
+    die("Failed to write latest file: {$latestFile}");
+}
+
+// Minimal HTML output for convenience
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Export - Success</title>
-    <style>
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            max-width: 600px;
-            width: 100%;
-        }
-        h1 {
-            color: #10b981;
-            margin: 0 0 20px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .success-icon {
-            width: 40px;
-            height: 40px;
-            background: #d1fae5;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #10b981;
-            font-size: 24px;
-        }
-        .info {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #4f46e5;
-        }
-        .info strong {
-            display: block;
-            margin-bottom: 5px;
-            color: #374151;
-        }
-        .info code {
-            background: #e5e7eb;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .next-steps {
-            margin-top: 25px;
-            padding-top: 25px;
-            border-top: 2px solid #f3f4f6;
-        }
-        .next-steps h3 {
-            margin: 0 0 15px 0;
-            color: #374151;
-        }
-        .next-steps ol {
-            padding-left: 20px;
-        }
-        .next-steps li {
-            margin: 8px 0;
-            color: #6b7280;
-        }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 12px 24px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 14px;
-            display: inline-block;
-            transition: all 0.3s;
-        }
-        .btn-primary {
-            background: #4f46e5;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #4338ca;
-        }
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
-        }
-        .btn-secondary:hover {
-            background: #e5e7eb;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>
-            <span class="success-icon">✓</span>
-            Database Exported Successfully!
-        </h1>
-        
-        <p>Your database has been backed up and is ready to sync.</p>
-        
-        <div class="info">
-            <strong>Backup Files Created:</strong>
-            <code><?php echo basename($backupFile); ?></code><br>
-            <code>latest.sql</code> (for Git sync)
-        </div>
-        
-        <div class="info">
-            <strong>Tables Exported:</strong>
-            <?php echo count($tables); ?> tables (<?php 
-                echo implode(', ', array_map(function($t) { 
-                    return '<code>' . $t . '</code>'; 
-                }, $tables)); 
-            ?>)
-        </div>
-        
-        <div class="info">
-            <strong>File Size:</strong>
-            <?php echo number_format(filesize($latestFile) / 1024, 2); ?> KB
-        </div>
-        
-        <div class="next-steps">
-            <h3>📝 Next Steps:</h3>
-            <ol>
-                <li>Commit the <code>database/backups/latest.sql</code> file to Git</li>
-                <li>Push to your repository (GitHub/GitLab)</li>
-                <li>Pull on your other computer</li>
-                <li>Run the import script</li>
-            </ol>
-        </div>
-        
-        <div class="btn-group">
-            <a href="../admin/dashboard.php" class="btn btn-primary">Go to Dashboard</a>
-            <a href="db-export.php" class="btn btn-secondary">Export Again</a>
-        </div>
-    </div>
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DB Export</title></head>
+<body style="font-family:system-ui,Segoe UI,Roboto,Arial;">
+    <h1>Database Exported</h1>
+    <p>Backup file: <strong><?php echo htmlspecialchars(basename($backupFile)); ?></strong></p>
+    <p>Latest file: <strong>latest.sql</strong></p>
+    <p>Tables exported: <?php echo count($tables); ?></p>
+    <p><a href="../admin/dashboard.php">Back to Dashboard</a> | <a href="backups/<?php echo rawurlencode(basename($latestFile)); ?>">Download latest.sql</a></p>
 </body>
 </html>

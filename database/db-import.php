@@ -1,326 +1,183 @@
 <?php
 /**
- * Database Import Script
- * File: database/db-import.php
- * 
- * Usage: Run this after pulling from Git
- * URL: http://localhost/Imar_Group_Admin_panel/database/db-import.php
+ * db-import.php
+ * Full DB import (replace current DB with backup)
+ * Usage: http://localhost/Imar_Group_Admin_panel/database/db-import.php
+ * IMPORTANT: Run locally only. This will replace your DB!
  */
 
-// Security: Only allow local access
+set_time_limit(0);
+ini_set('memory_limit', '512M');
+
+// Local-only guard
 if ($_SERVER['REMOTE_ADDR'] !== '127.0.0.1' && $_SERVER['REMOTE_ADDR'] !== '::1') {
+    http_response_code(403);
     die('Access denied. This script can only be run locally.');
 }
 
 define('SECURE_ACCESS', true);
-require_once '../config/config.php';
+require_once '../config/config.php'; // must provide $conn and DB_NAME
+
+if (!isset($conn) || !($conn instanceof mysqli)) {
+    die('Database connection ($conn) not found. Check ../config/config.php');
+}
+
+$backupDir = __DIR__ . '/backups';
+$latestFile = $backupDir . '/latest.sql';
 
 $imported = false;
 $error = '';
-$stats = [];
+$stats = ['success' => 0, 'failed' => 0, 'total' => 0];
+
+function export_current_db_as_backup($conn, $backupDir) {
+    // This reuses logic similar to export; simple single-file precautionary backup
+    $timestamp = date('Y-m-d_His');
+    $file = $backupDir . '/pre-import-' . $timestamp . '.sql';
+    // Build a small dump by calling the export logic inline (kept minimal to avoid duplication)
+    $sqlOut = [];
+    $sqlOut[] = "-- Pre-import backup " . date('Y-m-d H:i:s');
+    $sqlOut[] = "SET FOREIGN_KEY_CHECKS = 0;\n";
+
+    $res = $conn->query('SHOW FULL TABLES WHERE Table_type = "BASE TABLE"');
+    if (!$res) {
+        return [false, 'Failed listing tables: ' . $conn->error];
+    }
+    while ($row = $res->fetch_array(MYSQLI_NUM)) {
+        $table = $row[0];
+        $cr = $conn->query("SHOW CREATE TABLE `" . $conn->real_escape_string($table) . "`");
+        if ($cr && ($crRow = $cr->fetch_array(MYSQLI_NUM))) {
+            $sqlOut[] = "DROP TABLE IF EXISTS `" . $table . "`;";
+            $sqlOut[] = $crRow[1] . ";";
+        }
+        $dataRes = $conn->query("SELECT * FROM `" . $conn->real_escape_string($table) . "`");
+        if ($dataRes && $dataRes->num_rows > 0) {
+            $fields = [];
+            $fRes = $conn->query("SHOW COLUMNS FROM `" . $conn->real_escape_string($table) . "`");
+            while ($f = $fRes->fetch_assoc()) { $fields[] = $f['Field']; }
+            $colList = "`" . implode("`,`", $fields) . "`";
+            while ($r = $dataRes->fetch_assoc()) {
+                $vals = [];
+                foreach ($fields as $c) {
+                    $v = $r[$c];
+                    $vals[] = ($v === null) ? "NULL" : ("'" . $conn->real_escape_string($v) . "'");
+                }
+                $sqlOut[] = "INSERT INTO `" . $table . "` (" . $colList . ") VALUES (" . implode(",", $vals) . ");";
+            }
+        }
+    }
+    $sqlOut[] = "SET FOREIGN_KEY_CHECKS = 1;\n";
+    if (file_put_contents($file, implode("\n", $sqlOut)) === false) {
+        return [false, "Failed writing pre-import backup to $file"];
+    }
+    return [true, $file];
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_import'])) {
-    $sqlFile = __DIR__ . '/backups/latest.sql';
-    
-    if (!file_exists($sqlFile)) {
-        $error = 'No backup file found. Please export database first.';
+    if (!file_exists($latestFile)) {
+        $error = 'No backup file found. Please run the export script first.';
     } else {
-        try {
-            // Read SQL file
-            $sql = file_get_contents($sqlFile);
-            
-            // Split into individual queries
-            $queries = array_filter(array_map('trim', explode(";\n", $sql)));
-            
-            $successCount = 0;
-            $failCount = 0;
-            
-            // Disable foreign key checks temporarily
-            $conn->query('SET FOREIGN_KEY_CHECKS = 0');
-            
-            // Execute each query
-            foreach ($queries as $query) {
-                // Skip comments and empty lines
-                if (empty($query) || substr($query, 0, 2) === '--' || substr($query, 0, 2) === '/*') {
-                    continue;
-                }
-                
-                if ($conn->query($query)) {
-                    $successCount++;
+        // ensure backups dir exists
+        if (!is_dir($backupDir)) {
+            mkdir($backupDir, 0755, true);
+        }
+
+        // create a precautionary pre-import dump
+        list($ok, $preBackupInfo) = export_current_db_as_backup($conn, $backupDir);
+        if (!$ok) {
+            $error = 'Failed to create pre-import backup: ' . $preBackupInfo;
+        } else {
+            // Read dump
+            $sql = file_get_contents($latestFile);
+            if ($sql === false) {
+                $error = 'Failed to read backup file: ' . $latestFile;
+            } else {
+                // Execute dump via multi_query
+                $conn->query('SET FOREIGN_KEY_CHECKS = 0');
+
+                // multi_query execution
+                if ($conn->multi_query($sql)) {
+                    $success = 0;
+                    $failed = 0;
+                    do {
+                        // store_result - necessary to flush multi_query results
+                        if ($result = $conn->store_result()) {
+                            $result->free();
+                        }
+                        if ($conn->errno) {
+                            $failed++;
+                        } else {
+                            $success++;
+                        }
+                        $conn->next_result();
+                    } while ($conn->more_results());
+                    $stats['success'] = $success;
+                    $stats['failed'] = $failed;
+                    $stats['total'] = $success + $failed;
+                    $imported = true;
                 } else {
-                    $failCount++;
-                    // Don't stop on error, continue importing
+                    // multi_query failed (likely syntax error or permission)
+                    $error = 'Import failed: ' . $conn->error;
                 }
+
+                $conn->query('SET FOREIGN_KEY_CHECKS = 1');
             }
-            
-            // Re-enable foreign key checks
-            $conn->query('SET FOREIGN_KEY_CHECKS = 1');
-            
-            $imported = true;
-            $stats = [
-                'success' => $successCount,
-                'failed' => $failCount,
-                'total' => $successCount + $failCount
-            ];
-            
-        } catch (Exception $e) {
-            $error = 'Import failed: ' . $e->getMessage();
         }
     }
 }
 
-// Check if backup file exists
-$backupExists = file_exists(__DIR__ . '/backups/latest.sql');
-$backupSize = $backupExists ? filesize(__DIR__ . '/backups/latest.sql') : 0;
-$backupDate = $backupExists ? date('Y-m-d H:i:s', filemtime(__DIR__ . '/backups/latest.sql')) : 'N/A';
+// UI: show status and import confirmation
+$backupExists = file_exists($latestFile);
+$backupSize = $backupExists ? filesize($latestFile) : 0;
+$backupDate = $backupExists ? date('Y-m-d H:i:s', filemtime($latestFile)) : 'N/A';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Database Import</title>
-    <style>
-        body {
-            font-family: 'Inter', -apple-system, sans-serif;
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            padding: 20px;
-        }
-        .container {
-            background: white;
-            padding: 40px;
-            border-radius: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-            max-width: 600px;
-            width: 100%;
-        }
-        h1 {
-            color: #0f172a;
-            margin: 0 0 20px 0;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-        .icon {
-            width: 40px;
-            height: 40px;
-            background: #dbeafe;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #4f46e5;
-            font-size: 24px;
-        }
-        .success-message {
-            background: #d1fae5;
-            color: #065f46;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #10b981;
-        }
-        .error-message {
-            background: #fee2e2;
-            color: #dc2626;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #ef4444;
-        }
-        .warning {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #f59e0b;
-        }
-        .info {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 15px 0;
-            border-left: 4px solid #4f46e5;
-        }
-        .info strong {
-            display: block;
-            margin-bottom: 5px;
-            color: #374151;
-        }
-        .info code {
-            background: #e5e7eb;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-size: 13px;
-        }
-        .btn-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-        }
-        .btn {
-            padding: 12px 24px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            border: none;
-            cursor: pointer;
-            transition: all 0.3s;
-            text-decoration: none;
-            display: inline-block;
-            text-align: center;
-        }
-        .btn-danger {
-            background: #ef4444;
-            color: white;
-        }
-        .btn-danger:hover {
-            background: #dc2626;
-        }
-        .btn-secondary {
-            background: #f3f4f6;
-            color: #374151;
-        }
-        .btn-secondary:hover {
-            background: #e5e7eb;
-        }
-        .btn-primary {
-            background: #4f46e5;
-            color: white;
-        }
-        .btn-primary:hover {
-            background: #4338ca;
-        }
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin: 20px 0;
-        }
-        .stat-box {
-            background: #f9fafb;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-        }
-        .stat-value {
-            font-size: 32px;
-            font-weight: 700;
-            color: #4f46e5;
-        }
-        .stat-label {
-            font-size: 13px;
-            color: #6b7280;
-            margin-top: 5px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <?php if ($imported): ?>
-            <!-- Success State -->
-            <h1>
-                <span class="icon" style="background: #d1fae5; color: #10b981;">✓</span>
-                Import Completed!
-            </h1>
-            
-            <div class="success-message">
-                <strong>Database imported successfully!</strong><br>
-                Your database has been synchronized with the latest backup.
-            </div>
-            
-            <div class="stats">
-                <div class="stat-box">
-                    <div class="stat-value" style="color: #10b981;"><?php echo $stats['success']; ?></div>
-                    <div class="stat-label">Successful</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value" style="color: #ef4444;"><?php echo $stats['failed']; ?></div>
-                    <div class="stat-label">Failed</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-value"><?php echo $stats['total']; ?></div>
-                    <div class="stat-label">Total Queries</div>
-                </div>
-            </div>
-            
-            <div class="btn-group">
-                <a href="../admin/dashboard.php" class="btn btn-primary">Go to Dashboard</a>
-                <a href="db-import.php" class="btn btn-secondary">Import Again</a>
-            </div>
-            
-        <?php elseif ($error): ?>
-            <!-- Error State -->
-            <h1>
-                <span class="icon" style="background: #fee2e2; color: #ef4444;">✕</span>
-                Import Failed
-            </h1>
-            
-            <div class="error-message">
-                <strong>Error:</strong><br>
-                <?php echo htmlspecialchars($error); ?>
-            </div>
-            
-            <div class="btn-group">
-                <a href="db-import.php" class="btn btn-secondary">Try Again</a>
-                <a href="../admin/dashboard.php" class="btn btn-secondary">Go to Dashboard</a>
-            </div>
-            
-        <?php else: ?>
-            <!-- Import Confirmation -->
-            <h1>
-                <span class="icon">↓</span>
-                Import Database
-            </h1>
-            
-            <?php if (!$backupExists): ?>
-                <div class="error-message">
-                    <strong>No backup file found!</strong><br>
-                    Please run the export script on your other computer first, then pull from Git.
-                </div>
-                
-                <div class="info">
-                    <strong>Expected file location:</strong>
-                    <code>database/backups/latest.sql</code>
-                </div>
-                
-                <div class="btn-group">
-                    <a href="../admin/dashboard.php" class="btn btn-secondary">Go to Dashboard</a>
-                </div>
-                
-            <?php else: ?>
-                <p>You are about to import the database from the backup file. This will:</p>
-                
-                <div class="warning">
-                    <strong>⚠️ Warning:</strong><br>
-                    This will <strong>replace all current data</strong> in your database with the backup data. This action cannot be undone!
-                </div>
-                
-                <div class="info">
-                    <strong>Backup File Info:</strong>
-                    <div style="margin-top: 10px;">
-                        <strong>File:</strong> <code>latest.sql</code><br>
-                        <strong>Size:</strong> <?php echo number_format($backupSize / 1024, 2); ?> KB<br>
-                        <strong>Last Modified:</strong> <?php echo $backupDate; ?>
-                    </div>
-                </div>
-                
-                <form method="POST" action="">
-                    <div class="btn-group">
-                        <button type="submit" name="confirm_import" class="btn btn-danger">
-                            Confirm Import
-                        </button>
-                        <a href="../admin/dashboard.php" class="btn btn-secondary">Cancel</a>
-                    </div>
-                </form>
-            <?php endif; ?>
-        <?php endif; ?>
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>DB Import</title></head>
+<body style="font-family:system-ui,Segoe UI,Roboto,Arial; padding:20px;">
+    <h1>Database Import</h1>
+
+<?php if ($imported): ?>
+    <div style="background:#e6ffed;padding:12px;border:1px solid #9ef0c6;border-radius:6px;">
+        <strong>Import Completed</strong><br>
+        Success: <?php echo (int)$stats['success']; ?> queries<br>
+        Failed: <?php echo (int)$stats['failed']; ?><br>
+        Total: <?php echo (int)$stats['total']; ?><br>
+        <p>Pre-import backup created: <?php echo htmlspecialchars(basename($preBackupInfo)); ?></p>
     </div>
+    <p><a href="../admin/dashboard.php">Go to Dashboard</a></p>
+
+<?php elseif ($error): ?>
+    <div style="background:#fff0f0;padding:12px;border:1px solid #f3a6a6;border-radius:6px;">
+        <strong>Error:</strong><br>
+        <?php echo htmlspecialchars($error); ?>
+    </div>
+    <p><a href="../admin/dashboard.php">Go to Dashboard</a></p>
+
+<?php else: ?>
+
+    <p>This will replace the entire database with the backup file <strong>latest.sql</strong>.</p>
+
+    <?php if (!$backupExists): ?>
+        <div style="background:#fff6e6;padding:12px;border:1px solid #f2d6a6;border-radius:6px;">
+            <strong>No backup found.</strong> Please run db-export.php on your local PC and commit/pull the generated file into <code>database/backups/latest.sql</code> first.
+        </div>
+    <?php else: ?>
+        <div style="background:#f0f7ff;padding:12px;border:1px solid #cbe1ff;border-radius:6px;">
+            <strong>Backup file:</strong> <?php echo htmlspecialchars(basename($latestFile)); ?><br>
+            <strong>Size:</strong> <?php echo number_format($backupSize / 1024, 2); ?> KB<br>
+            <strong>Modified:</strong> <?php echo htmlspecialchars($backupDate); ?>
+        </div>
+
+        <form method="POST" action="">
+            <p style="margin-top:12px;">
+                <button type="submit" name="confirm_import" style="padding:10px 16px;background:#d9534f;border:none;color:#fff;border-radius:6px;cursor:pointer;">
+                    Confirm Import (Replace Database)
+                </button>
+                <a href="../admin/dashboard.php" style="margin-left:10px;">Cancel</a>
+            </p>
+        </form>
+    <?php endif; ?>
+
+<?php endif; ?>
 </body>
 </html>
