@@ -33,7 +33,7 @@ $admin_initials = strtoupper(substr($admin_name, 0, 1));
 $stats = [];
 
 // New inquiries count
-$result = $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'");
+$result = $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE Z = 'new'");
 $stats['new_inquiries'] = $result->fetch_assoc()['count'] ?? 0;
 
 // Total gallery images

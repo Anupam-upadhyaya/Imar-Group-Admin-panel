@@ -206,9 +206,9 @@
     color: #1e40af;
 }
 
-.inquiry-badge.read {
-    background: #e0e7ff;
-    color: #4338ca;
+.inquiry-badge.reading {
+    background: #fc900259;
+    color: #fc9002ff;
 }
 
 .inquiry-badge.responded {
@@ -399,7 +399,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Responsive Design */
@@ -407,7 +409,7 @@
     .two-column-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
     }
@@ -417,25 +419,25 @@
     .stat-card {
         padding: 20px;
     }
-    
+
     .stat-info .stat-value {
         font-size: 28px;
     }
-    
+
     .stat-icon {
         width: 48px;
         height: 48px;
     }
-    
+
     .stat-icon svg {
         width: 24px;
         height: 24px;
     }
-    
+
     .content-card {
         padding: 20px;
     }
-    
+
     .quick-actions {
         grid-template-columns: 1fr;
     }
@@ -445,7 +447,7 @@
     .stats-grid {
         grid-template-columns: 1fr;
     }
-    
+
     .inquiry-header {
         flex-direction: column;
         gap: 8px;
@@ -454,17 +456,18 @@
 
 /* Print Styles */
 @media print {
+
     .sidebar,
     .dashboard-header .header-actions,
     .quick-actions,
     .content-card-header .view-all {
         display: none !important;
     }
-    
+
     .main-content {
         padding: 0;
     }
-    
+
     .stat-card,
     .content-card {
         box-shadow: none;
@@ -473,12 +476,14 @@
 }
 
 .btn-delete {
-    background-color: #dc2626 !important;  /* red */
+    background-color: #dc2626 !important;
+    /* red */
     color: white !important;
 }
 
 .btn-delete:hover {
-    background-color: #b91c1c !important;  /* darker red */
+    background-color: #b91c1c !important;
+    /* darker red */
 }
 
 /* Button group spacing */

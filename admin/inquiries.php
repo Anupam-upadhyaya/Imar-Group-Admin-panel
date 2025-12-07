@@ -204,19 +204,12 @@ $counts = [
             color: #1e40af;
         }
         
-        .status-badge.reading {
-            background: #fc900259;
-            color: #fc9002ff;
-        }
+         .status-badge.reading { 
+            background: #fc900259; color: #fc9002ff; }
         
         .status-badge.responded {
             background: #d1fae5;
             color: #065f46;
-        }
-        
-        .status-badge.archived {
-            background: #f3f4f6;
-            color: #6b7280;
         }
         
         .action-btn {
