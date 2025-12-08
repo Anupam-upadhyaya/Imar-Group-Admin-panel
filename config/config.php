@@ -34,11 +34,16 @@ define('MAX_LOGIN_ATTEMPTS', 5);
 define('LOGIN_LOCKOUT_TIME', 900); // 15 minutes in seconds
 
 // File Upload Configuration
-define('MAX_FILE_SIZE', 5242880); // 5MB in bytes
-define('ALLOWED_IMAGE_TYPES', ['image/jpeg', 'image/png', 'image/gif', 'image/webp']);
-define('UPLOAD_PATH', BASE_PATH . '/uploads/');
+define('BASE_PATH', __DIR__ . '/../'); // Absolute path to project root
+define('BASE_URL', '/'); // Adjust if site in subfolder on production
+
+define('UPLOAD_PATH', BASE_PATH . 'uploads/');
 define('GALLERY_PATH', UPLOAD_PATH . 'gallery/');
 define('BLOG_PATH', UPLOAD_PATH . 'blog/');
+
+define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
+define('ALLOWED_IMAGE_TYPES', ['image/jpeg','image/png','image/gif','image/webp']);
+
 
 // Pagination
 define('ITEMS_PER_PAGE', 20);
