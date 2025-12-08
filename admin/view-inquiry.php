@@ -371,8 +371,8 @@ if ($inquiry['status'] === 'new') {
                     <value><a href="tel:<?php echo htmlspecialchars($inquiry['phone']); ?>" style="color: #4f46e5;"><?php echo htmlspecialchars($inquiry['phone']); ?></a></value>
                 </div>
                 <div class="info-item">
-                    <label>IP Address</label>
-                    <value><?php echo htmlspecialchars($inquiry['ip_address']); ?></value>
+                    <label>Appointment Date</label>
+                    <value><?php echo htmlspecialchars($inquiry['appointment_date']); ?></value>
                 </div>
             </div>
 
