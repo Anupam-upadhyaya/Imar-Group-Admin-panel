@@ -105,4 +105,16 @@ class Database {
 // Initialize database connection
 $db = Database::getInstance();
 $conn = $db->getConnection();
+
+// Legacy compatibility: Create simple connection variables for older code
+// This allows both $conn (object-oriented) and traditional mysqli usage
+$servername = DB_HOST;
+$username = DB_USER;
+$password = DB_PASS;
+$dbname = DB_NAME;
+
+// Note: $conn is already created above via the Database class
+// This ensures compatibility with both:
+// 1. Modern code using Database::getInstance()->getConnection()
+// 2. Legacy code expecting $conn variable directly
 ?>
