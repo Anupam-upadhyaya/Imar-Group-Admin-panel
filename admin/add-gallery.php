@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error_message = "File size exceeds 5MB limit.";
         } else {
             // Create upload directory structure
-            $upload_base = '../../Imar-Group-Website/Gallery/';
+            $upload_base = '../../../Imar-Group-Website/Gallery/';
             $category_folder = strtoupper($category);
             $upload_dir = $upload_base . $category_folder . '/';
             
