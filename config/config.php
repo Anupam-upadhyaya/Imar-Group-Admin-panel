@@ -22,7 +22,9 @@ define('DB_CHARSET', 'utf8mb4');
 // Site Configuration
 define('SITE_NAME', 'IMAR Group Admin');
 define('SITE_URL', 'http://localhost/Imar_Group_Admin_panel/admin');
-define('BASE_PATH', dirname(__DIR__)); // Gets the parent directory of config
+if (!defined('BASE_PATH')) {
+    define('BASE_PATH', dirname(__DIR__));
+}
 
 // Session Configuration
 define('SESSION_LIFETIME', 1800); // 30 minutes in seconds
