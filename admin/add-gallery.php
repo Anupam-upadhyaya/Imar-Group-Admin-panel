@@ -101,10 +101,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     // Log activity
                     $auth->logActivity($admin_id, 'added_gallery_item', 'gallery', $gallery_id);
                     
-                    $success_message = "Gallery item added successfully!";
+                    $success_message = "Gallery item added successfully! ID: " . $gallery_id;
                     
-                    // Redirect after 2 seconds
-                    header("refresh:2;url=gallery.php");
+                    // Add JavaScript to clear cache and redirect
+                    echo "<script>
+                        // Clear gallery cache
+                        if ('caches' in window) {
+                            caches.keys().then(function(names) {
+                                names.forEach(function(name) {
+                                    caches.delete(name);
+                                });
+                            });
+                        }
+                        // Redirect after 2 seconds
+                        setTimeout(function() {
+                            window.location.href = 'gallery.php?refresh=' + Date.now();
+                        }, 2000);
+                    </script>";
                 } else {
                     $error_message = "Database error: " . $stmt->error;
                     // Delete uploaded file if database insert fails
