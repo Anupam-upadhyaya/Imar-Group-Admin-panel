@@ -26,21 +26,25 @@ $admin_id = $_SESSION['admin_id'];
 $error_message = '';
 $success_message = '';
 
-// Define paths - Fixed for your structure
+// Define paths - Production safe
 $document_root = $_SERVER['DOCUMENT_ROOT'];
-// Go from admin folder to website folder
-$upload_base_abs = dirname(dirname(__DIR__)) . '/Imar-Group-Website/Gallery/'; // Absolute path for file operations
+$upload_base_abs = $document_root . '/Imar-Group-Website/Gallery/'; // Absolute path for file operations
 $upload_base_url = 'Gallery/'; // Relative URL for database storage
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $category = $_POST['category'] ?? 'all';
-    $size_class = $_POST['size_class'] ?? 'normal';
+    $category = trim($_POST['category'] ?? 'all');
+    $size_class = trim($_POST['size_class'] ?? 'normal');
     $is_featured = isset($_POST['is_featured']) ? 1 : 0;
     $display_order = (int)($_POST['display_order'] ?? 0);
-    $status = $_POST['status'] ?? 'active';
+    $status = trim($_POST['status'] ?? 'active');
+    
+    // Validate status value
+    if (!in_array($status, ['active', 'inactive', 'pending'])) {
+        $status = 'active';
+    }
     
     // Validation
     if (empty($title)) {
@@ -76,6 +80,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $db_path = $upload_base_url . $category_folder . '/' . $filename;
             
             if (move_uploaded_file($file['tmp_name'], $file_path_abs)) {
+                // Get image dimensions
+                list($img_width, $img_height) = getimagesize($file_path_abs);
+                
+                // Auto-calculate size class based on image dimensions
+                $size_class = calculateSizeClass($img_width, $img_height);
+                
                 // Create thumbnail
                 $thumbnail_filename = 'thumb_' . $filename;
                 $thumbnail_created = createThumbnail($file_path_abs, $upload_dir_abs, $thumbnail_filename);
@@ -109,6 +119,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error_message = "Failed to upload image. Check directory permissions.";
             }
         }
+    }
+}
+
+// Function to automatically calculate size class based on image dimensions
+function calculateSizeClass($width, $height) {
+    $aspect_ratio = $width / $height;
+    
+    // Portrait (taller than wide)
+    if ($aspect_ratio < 0.75) {
+        return 'tall'; // 1x2
+    }
+    // Landscape (wider than tall)
+    elseif ($aspect_ratio > 1.5) {
+        return 'wide'; // 2x1
+    }
+    // Square or near-square - vary randomly for visual interest
+    else {
+        // 30% chance to make it large (2x2) for visual variety
+        return (rand(1, 10) <= 3) ? 'large' : 'normal';
     }
 }
 

@@ -55,11 +55,16 @@ if (!$gallery_item) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $category = $_POST['category'] ?? 'all';
-    $size_class = $_POST['size_class'] ?? 'normal';
+    $category = trim($_POST['category'] ?? 'all');
+    $size_class = trim($_POST['size_class'] ?? 'normal');
     $is_featured = isset($_POST['is_featured']) ? 1 : 0;
     $display_order = (int)($_POST['display_order'] ?? 0);
-    $status = $_POST['status'] ?? 'active';
+    $status = trim($_POST['status'] ?? 'active');
+    
+    // Validate status value
+    if (!in_array($status, ['active', 'inactive', 'pending'])) {
+        $status = 'active';
+    }
     
     // Validation
     if (empty($title)) {
