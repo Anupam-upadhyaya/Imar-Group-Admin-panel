@@ -1,14 +1,9 @@
 <?php
-/**
- * IMAR Group Admin Panel - Gallery Management
- * File: admin/gallery.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
-require_once '../config/config.php';
-require_once '../includes/classes/Auth.php';
+require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/classes/Auth.php';
 
 $auth = new Auth($conn);
 
@@ -100,8 +95,8 @@ $counts = [
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gallery Management - IMAR Group Admin</title>
-    <link rel="stylesheet" href="../css/styles.css">
-    <link rel="stylesheet" href="../css/dashboard.css">
+    <link rel="stylesheet" href="../../css/styles.css">
+    <link rel="stylesheet" href="../../css/dashboard.css">
     <style>
         .gallery-grid-admin {
             display: grid;
@@ -292,15 +287,15 @@ $counts = [
                 <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
                 <span>Dashboard</span>
             </a>
-            <a href="inquiries.php" class="menu-item">
+            <a href="INQUIRY_CODE/inquiries.php" class="menu-item">
                 <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
                 <span>Inquiries</span>
             </a>
-            <a href="gallery.php" class="menu-item active">
+          <a href="GALLERY_CODE/gallery.php" class="menu-item active">
                 <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
                 <span>Gallery</span>
             </a>
-            <a href="blog.php" class="menu-item">
+            <a href="   BLOG_CODE/blog.php" class="menu-item">
                 <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
                 <span>Blog Posts</span>
             </a>
@@ -361,7 +356,7 @@ $counts = [
             </div>
 
             <div class="search-box">
-                <form method="GET" action="gallery.php" style="display: flex; gap: 10px;">
+               <form method="GET" action="GALLERY_CODE/gallery.php" style="display: flex; gap: 10px;">
                     <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
                     <input type="text" name="search" class="search-input" placeholder="Search gallery..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit" class="action-btn view">Search</button>

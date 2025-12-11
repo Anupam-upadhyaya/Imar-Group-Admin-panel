@@ -123,7 +123,7 @@ if ($hour < 12) {
                 <span>Dashboard</span>
             </a>
 
-            <a href="inquiries.php" class="menu-item">
+            <a href="INQUIRY_CODE/inquiries.php" class="menu-item">
                 <svg viewBox="0 0 24 24">
                     <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
                 </svg>
@@ -135,19 +135,23 @@ if ($hour < 12) {
                 <?php endif; ?>
             </a>
 
-            <a href="gallery.php" class="menu-item">
+            <a href="GALLERY_CODE/gallery.php" class="menu-item">
                 <svg viewBox="0 0 24 24">
                     <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                 </svg>
                 <span>Gallery</span>
             </a>
 
-            <a href="blog.php" class="menu-item">
-                <svg viewBox="0 0 24 24">
-                    <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
-                </svg>
-                <span>Blog Posts</span>
-            </a>
+<a href="BLOG_CODE_blog.php" class="menu-item">
+    <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6z"/></svg>
+    <span>Blog Posts</span>
+</a>
+
+<a href="videos.php" class="menu-item">
+    <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
+    <span>Videos</span>
+</a>
+
 
             <a href="users.php" class="menu-item">
                 <svg viewBox="0 0 24 24">
@@ -190,19 +194,19 @@ if ($hour < 12) {
 
         <!-- Quick Actions -->
         <div class="quick-actions">
-            <a href="inquiries.php" class="quick-action-btn">
+            <a href="INQUIRY_CODE/inquiries.php" class="quick-action-btn">
                 <svg viewBox="0 0 24 24">
                     <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                 </svg>
                 <span>View Inquiries</span>
             </a>
-            <a href="gallery.php" class="quick-action-btn">
+            <a href="GALLERY_CODE/gallery.php" class="quick-action-btn">
                 <svg viewBox="0 0 24 24">
                     <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
                 </svg>
                 <span>Upload Image</span>
             </a>
-            <a href="blog.php" class="quick-action-btn">
+            <a href="BLOG_CODE/blog.php" class="quick-action-btn">
                 <svg viewBox="0 0 24 24">
                     <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
                 </svg>
@@ -302,7 +306,7 @@ if ($hour < 12) {
             <div class="content-card">
                 <div class="content-card-header">
                     <h2>Recent Inquiries</h2>
-                    <a href="inquiries.php" class="view-all">View All →</a>
+                    <a href="INQUIRY_CODE/inquiries.php" class="view-all">View All →</a>
                 </div>
                 
                 <?php if (empty($recent_inquiries)): ?>
