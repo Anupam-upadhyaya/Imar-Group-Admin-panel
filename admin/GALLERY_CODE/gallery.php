@@ -322,7 +322,7 @@ $counts = [
                         <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
                     </div>
                 </div>
-                <a href="logout.php" class="logout-btn">Logout</a>
+                <a href="../logout.php" class="logout-btn">Logout</a>
             </div>
         </div>
 
@@ -377,7 +377,7 @@ $counts = [
             <div class="gallery-grid-admin">
                 <?php foreach ($gallery_items as $item): ?>
                     <div class="gallery-card">
-                        <img src="../../Imar-Group-Website/<?php echo htmlspecialchars($item['image_path']); ?>" 
+                        <img src="../../../Imar-Group-Website/<?php echo htmlspecialchars($item['image_path']); ?>" 
                              alt="<?php echo htmlspecialchars($item['title']); ?>" 
                              class="gallery-card-image"
                              onerror="this.src='../assets/placeholder.jpg'">

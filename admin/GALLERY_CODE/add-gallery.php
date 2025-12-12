@@ -2,8 +2,8 @@
 session_start();
 define('SECURE_ACCESS', true);
 
-require_once '../config/config.php';
-require_once '../includes/classes/Auth.php';
+require_once '../../config/config.php';
+require_once '../../includes/classes/Auth.php';
 
 $auth = new Auth($conn);
 
@@ -22,7 +22,7 @@ $success_message = '';
 
 // Define paths - Production safe
 $document_root = $_SERVER['DOCUMENT_ROOT'];
-$upload_base_abs = $document_root . '/Imar-Group-Website/Gallery/'; // Absolute path for file operations
+$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Gallery/'; // Absolute path for file operations
 $upload_base_url = 'Gallery/'; // Relative URL for database storage
 
 // Handle form submission
@@ -244,8 +244,8 @@ $suggested_order = $max_order + 1;
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Add Gallery Item - IMAR Group Admin</title>
-    <link rel="stylesheet" href="../css/styles.css">
-    <link rel="stylesheet" href="../css/dashboard.css">
+<link rel="stylesheet" href="../../css/styles.css">
+<link rel="stylesheet" href="../../css/dashboard.css">
     <style>
         .form-container {
             max-width: 800px;
@@ -569,7 +569,7 @@ $suggested_order = $max_order + 1;
                         </svg>
                         Add Gallery Item
                     </button>
-                    <a href="GALLERY_CODE/gallery.php" class="btn btn-secondary">Cancel</a>
+                    <a href="gallery.php" class="btn btn-secondary">Cancel</a>
                 </div>
             </div>
         </form>
