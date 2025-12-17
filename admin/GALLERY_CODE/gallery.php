@@ -211,7 +211,7 @@ $counts = [
         }
         
         .add-new-btn {
-            position: fixed;
+          position: fixed;
             bottom: 30px;
             right: 30px;
             width: 60px;
@@ -225,6 +225,9 @@ $counts = [
             box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
             transition: all 0.3s;
             z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .add-new-btn:hover {
