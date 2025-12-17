@@ -318,6 +318,31 @@ $suggested_order = $max_order + 1;
             color: #6b7280;
             margin-top: 4px;
         }
+
+        .add-new-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: #4f46e5;
+            color: white;
+            font-size: 24px;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+            transition: all 0.3s;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .add-new-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 20px rgba(79, 70, 229, 0.6);
+        }
         
         .youtube-preview {
             display: none;
@@ -342,7 +367,7 @@ $suggested_order = $max_order + 1;
 </head>
 <body>
 
-<div class="dashboard">
+<<div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <!-- MAIN CONTENT -->
@@ -411,54 +436,7 @@ $suggested_order = $max_order + 1;
                 </div>
             </div>
         </div>
-
-        <!-- Add Video Form -->
-        <div class="add-video-form">
-            <h2 style="margin-bottom: 20px;">➕ Add New Video</h2>
-            <form method="POST" id="videoForm">
-                <input type="hidden" name="action" value="add">
-                
-                <div class="form-group">
-                    <label for="youtube_url">YouTube Video URL <span style="color: #ef4444;">*</span></label>
-                    <input type="url" id="youtube_url" name="youtube_url" placeholder="https://www.youtube.com/watch?v=..." required>
-                    <div class="helper-text">Paste the full YouTube video URL. The video ID will be extracted automatically.</div>
-                    
-                    <div id="youtubePreview" class="youtube-preview">
-                        <p style="margin-bottom: 10px; font-weight: 600; color: #10b981;">✓ Valid YouTube URL detected!</p>
-                        <p><strong>Video ID:</strong> <span id="previewId"></span></p>
-                        <img id="previewThumb" src="" style="max-width: 200px; border-radius: 8px; margin-top: 10px;">
-                    </div>
-                </div>
-                
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="title">Video Title</label>
-                        <input type="text" id="title" name="title" placeholder="Optional - auto-generated if left empty">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="display_order">Display Order</label>
-                        <input type="number" id="display_order" name="display_order" value="<?php echo $suggested_order; ?>" min="0">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="status">Status</label>
-                        <select id="status" name="status">
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <button type="submit" class="btn btn-primary" style="padding: 12px 24px; font-size: 14px;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
-                        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-                    </svg>
-                    Add Video
-                </button>
-            </form>
-        </div>
-
+        
         <!-- Video Grid -->
         <?php if (empty($videos)): ?>
             <div class="empty-state">
@@ -511,6 +489,8 @@ $suggested_order = $max_order + 1;
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
+
+        <a href="add-videos.php" class="add-new-btn" title="Add New video">+</a>
     </div>
 </div>
 
