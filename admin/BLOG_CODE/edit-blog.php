@@ -25,9 +25,15 @@ $admin_id = $_SESSION['admin_id'];
 $error_message = '';
 $success_message = '';
 
-// Define paths
-$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/images/blog/';
+// Define absolute path for file operations
+$document_root = $_SERVER['DOCUMENT_ROOT'];
+$upload_base_abs = $document_root . '/Imar-Group-Website/images/blog/';
 $upload_base_url = 'images/blog/';
+
+// Create directory if it doesn't exist
+if (!file_exists($upload_base_abs)) {
+    mkdir($upload_base_abs, 0755, true);
+}
 
 // Get blog post ID
 $blog_id = (int)($_GET['id'] ?? 0);
