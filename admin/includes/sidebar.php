@@ -49,7 +49,7 @@ $new_inquiries_count = $conn->query("SELECT COUNT(*) as count FROM inquiries WHE
             <span>Videos</span>
         </a>
 
-        <a href="/Imar_Group_Admin_panel/admin/services.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'services.php' ? 'active' : ''; ?>">
+        <a href="/Imar_Group_Admin_panel/admin/SERVICES_CODE/services.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'services.php' ? 'active' : ''; ?>">
             <svg viewBox="0 0 24 24" fill="currentColor">
     <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
 </svg>
