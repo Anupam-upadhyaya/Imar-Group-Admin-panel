@@ -216,8 +216,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label>Current Service Icon</label>
                     <div class="current-icon">
                         <?php if ($service['icon_path']): ?>
-                            <img src="../<?php echo htmlspecialchars($service['icon_path']); ?>" alt="<?php echo htmlspecialchars($service['title']); ?>">
-                        <?php else: ?>
+    <img src="/<?php echo htmlspecialchars(ltrim($service['icon_path'], '/')); ?>" 
+         alt="<?php echo htmlspecialchars($service['title']); ?>">
+<?php else: ?>
                             <svg width="80" height="80" viewBox="0 0 24 24" fill="#9ca3af">
                                 <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
                             </svg>

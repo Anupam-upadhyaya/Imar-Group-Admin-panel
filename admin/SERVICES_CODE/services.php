@@ -1,7 +1,7 @@
 <?php
 /**
- * IMAR Group Admin Panel - Services Management
- * File: admin/services.php
+ * IMAR Group Admin Panel - Services Management (FIXED)
+ * File: admin/SERVICES_CODE/services.php
  */
 
 session_start();
@@ -22,29 +22,31 @@ $admin_initials = strtoupper(substr($admin_name, 0, 1));
 $admin_role = $_SESSION['admin_role'] ?? 'editor';
 $admin_id = $_SESSION['admin_id'];
 
+// FIX: Define document root
+$document_root = $_SERVER['DOCUMENT_ROOT'];
+
 // Handle delete
 if (isset($_GET['delete']) && $admin_role !== 'editor') {
     $delete_id = (int)$_GET['delete'];
     
-    // Get icon path before deleting
     $stmt = $conn->prepare("SELECT icon_path FROM services WHERE id = ?");
     $stmt->bind_param("i", $delete_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($row = $result->fetch_assoc()) {
-        // Delete from database
         $stmt = $conn->prepare("DELETE FROM services WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
         
-        // Delete icon file if exists
+        // FIX: Correct path for deleting icon
         if ($row['icon_path']) {
-            $icon_path = $document_root . '/Imar-Group-Website/' . $row['icon_path'];
-            if (file_exists($icon_path)) @unlink($icon_path);
+            $icon_full_path = $document_root . '/Imar-Group-Website/' . $row['icon_path'];
+            if (file_exists($icon_full_path)) {
+                @unlink($icon_full_path);
+            }
         }
         
-        // Log activity
         $auth->logActivity($admin_id, 'deleted_service', 'services', $delete_id);
         
         $success_message = "Service deleted successfully!";
@@ -101,7 +103,6 @@ $stats = [
     'offers' => $conn->query("SELECT COUNT(*) as count FROM services WHERE has_offer = 1")->fetch_assoc()['count']
 ];
 
-// Get category counts
 $category_counts = [
     'all' => $stats['total'],
     'financial' => $conn->query("SELECT COUNT(*) as count FROM services WHERE category = 'financial'")->fetch_assoc()['count'],
@@ -109,6 +110,10 @@ $category_counts = [
     'property' => $conn->query("SELECT COUNT(*) as count FROM services WHERE category = 'property'")->fetch_assoc()['count'],
     'general' => $conn->query("SELECT COUNT(*) as count FROM services WHERE category = 'general'")->fetch_assoc()['count']
 ];
+
+// FIX: Define the client-side website URL
+// IMPORTANT: Change this to your actual client website URL
+$client_website_url = 'http://localhost/Imar-Group-Website'; // Change this to your actual domain
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -149,13 +154,22 @@ $category_counts = [
             align-items: center;
             justify-content: center;
             position: relative;
+            overflow: hidden;
         }
         
+        /* FIX: Better icon display */
         .service-card-icon img {
-            max-width: 80px;
-            max-height: 80px;
+            max-width: 120px;
+            max-height: 120px;
             object-fit: contain;
             filter: brightness(0) invert(1);
+        }
+        
+        /* FIX: Add fallback icon styling */
+        .service-card-icon svg {
+            width: 80px;
+            height: 80px;
+            fill: white;
         }
         
         .service-card-content {
@@ -309,45 +323,6 @@ $category_counts = [
             box-shadow: 0 8px 20px rgba(79, 70, 229, 0.6);
         }
         
-        .filter-tabs {
-            display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
-        }
-        
-        .filter-tab {
-            padding: 8px 16px;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            background: white;
-            color: #6b7280;
-            text-decoration: none;
-            font-size: 14px;
-            font-weight: 500;
-            transition: all 0.3s;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        
-        .filter-tab.active {
-            background: #4f46e5;
-            border-color: #4f46e5;
-            color: white;
-        }
-        
-        .filter-badge {
-            background: rgba(0,0,0,0.1);
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-        }
-        
-        .filter-tab.active .filter-badge {
-            background: rgba(255,255,255,0.2);
-        }
-        
         .search-filter-row {
             display: flex;
             gap: 15px;
@@ -382,6 +357,17 @@ $category_counts = [
             background: white;
             border-radius: 12px;
         }
+        
+        /* FIX: Add debug info style */
+        .debug-info {
+            background: #fef3c7;
+            border: 1px solid #f59e0b;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -389,7 +375,6 @@ $category_counts = [
 <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
     
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Services Management</h1>
@@ -500,11 +485,25 @@ $category_counts = [
         <?php else: ?>
             <div class="services-grid-admin">
                 <?php foreach ($services as $service): ?>
+                    <?php
+                    // FIX: Calculate correct icon path
+                    $icon_url = '';
+                    if ($service['icon_path']) {
+                        // Remove leading slash if exists
+                        $clean_path = ltrim($service['icon_path'], '/');
+                        // Build full URL from document root
+                        $icon_url = '/' . $clean_path;
+                    }
+                    ?>
                     <div class="service-card-admin">
                         <div class="service-card-icon">
-                            <?php if ($service['icon_path']): ?>
-                                <img src="../<?php echo htmlspecialchars($service['icon_path']); ?>" 
-                                     alt="<?php echo htmlspecialchars($service['title']); ?>">
+                            <?php if ($service['icon_path'] && file_exists($document_root . '/' . ltrim($service['icon_path'], '/'))): ?>
+                                <img src="<?php echo htmlspecialchars($icon_url); ?>" 
+                                     alt="<?php echo htmlspecialchars($service['title']); ?>"
+                                     onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                                <svg style="display:none;" width="80" height="80" viewBox="0 0 24 24" fill="white">
+                                    <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
+                                </svg>
                             <?php else: ?>
                                 <svg width="80" height="80" viewBox="0 0 24 24" fill="white">
                                     <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
@@ -527,8 +526,19 @@ $category_counts = [
                                 <?php endif; ?>
                             </div>
                             
+                            <!-- FIX: Debug info (can be removed after testing) -->
+                            <div class="debug-info">
+                                <strong>Icon Path:</strong> <?php echo htmlspecialchars($service['icon_path'] ?? 'NULL'); ?><br>
+                                <strong>Full Path:</strong> <?php echo htmlspecialchars($icon_url); ?><br>
+                                <strong>File Exists:</strong> <?php echo file_exists($document_root . '/' . ltrim($service['icon_path'], '/')) ? 'Yes' : 'No'; ?>
+                            </div>
+                            
                             <div class="service-card-actions">
-                                <a href="view-service.php?id=<?php echo $service['id']; ?>" class="btn-small btn-view">View</a>
+                                <!-- FIX: View button now redirects to client website with service slug -->
+                                <a href="<?php echo $client_website_url; ?>/services.php?service=<?php echo urlencode($service['slug']); ?>" 
+                                   class="btn-small btn-view" 
+                                   target="_blank" 
+                                   title="View on client website">View</a>
                                 <a href="edit-service.php?id=<?php echo $service['id']; ?>" class="btn-small btn-edit">Edit</a>
                                 <?php if ($admin_role !== 'editor'): ?>
                                     <a href="?delete=<?php echo $service['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>" 
@@ -542,10 +552,22 @@ $category_counts = [
             </div>
         <?php endif; ?>
 
-        <!-- Add New Button -->
         <a href="add-service.php" class="add-new-btn" title="Add New Service">+</a>
     </div>
 </div>
+
+<!-- FIX: Add JavaScript to toggle debug info (optional) -->
+<script>
+// Optional: Double-click on a card to show debug info
+document.querySelectorAll('.service-card-admin').forEach(card => {
+    card.addEventListener('dblclick', function() {
+        const debugInfo = this.querySelector('.debug-info');
+        if (debugInfo) {
+            debugInfo.style.display = debugInfo.style.display === 'none' ? 'block' : 'none';
+        }
+    });
+});
+</script>
 
 </body>
 </html>
