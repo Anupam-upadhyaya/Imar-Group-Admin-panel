@@ -474,8 +474,8 @@ $client_website_url = 'http://localhost/Imar-Group-Website';
                             <?php if (!empty($service['icon_path'])): ?>
                                 <?php
                                 // FIX: Use exact same pattern as Gallery
-// Temporary absolute path for testing
-$icon_display_path = '/Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
+                                // NEW (4 levels):
+$icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
                                 ?>
                                 <img src="<?php echo $icon_display_path; ?>" 
                                      alt="<?php echo htmlspecialchars($service['title']); ?>"
