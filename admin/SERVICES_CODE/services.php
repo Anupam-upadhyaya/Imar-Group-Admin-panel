@@ -1,9 +1,10 @@
 <?php
 /**
- * IMAR Group Admin Panel - Services Management (FIXED)
+ * IMAR Group Admin Panel - Services Management (FIXED VIEW BUTTON)
  * File: admin/SERVICES_CODE/services.php
  * 
- * FIX: Corrected image path display to match Gallery pattern exactly
+ * FIX: View button now correctly opens client-side services page with modal
+ * The client side uses JavaScript to open modals, not separate PHP pages per service
  */
 
 session_start();
@@ -110,7 +111,13 @@ $category_counts = [
     'general' => $conn->query("SELECT COUNT(*) as count FROM services WHERE category = 'general'")->fetch_assoc()['count']
 ];
 
+// FIX: Configure client website URL based on your actual setup
+// This should point to your client-side services page (services.html or services.php)
 $client_website_url = 'http://localhost/Imar-Group-Website';
+
+// Detect if you're using .html or .php for services page
+// Check which one exists and use that
+$services_page = 'services.html'; // Change to 'services.php' if that's what you use
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -269,10 +276,17 @@ $client_website_url = 'http://localhost/Imar-Group-Website';
         .btn-view {
             background: #10b981;
             color: white;
+            position: relative;
         }
         
         .btn-view:hover {
             background: #059669;
+            transform: translateY(-1px);
+        }
+        
+        .btn-view::after {
+            content: '🔗';
+            margin-left: 4px;
         }
         
         .btn-edit {
@@ -351,6 +365,47 @@ $client_website_url = 'http://localhost/Imar-Group-Website';
             padding: 60px 20px;
             background: white;
             border-radius: 12px;
+        }
+        
+        .client-url-indicator {
+            display: inline-block;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        
+        .url-config-box {
+            margin-top: 30px;
+            padding: 20px;
+            background: #eff6ff;
+            border: 2px solid #3b82f6;
+            border-radius: 12px;
+            font-size: 13px;
+        }
+        
+        .url-config-box h4 {
+            margin: 0 0 10px 0;
+            color: #1e40af;
+            font-size: 15px;
+        }
+        
+        .url-config-box code {
+            background: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            color: #1e40af;
+        }
+        
+        .url-config-box .instruction {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #93c5fd;
+            color: #1e40af;
+            font-size: 12px;
         }
     </style>
 </head>
@@ -437,16 +492,16 @@ $client_website_url = 'http://localhost/Imar-Group-Website';
                 <form method="GET" action="">
                     <input type="hidden" name="category" value="<?php echo htmlspecialchars($filter_category); ?>">
                     <input type="hidden" name="status" value="<?php echo htmlspecialchars($filter_status); ?>">
-                    <input type="text" name="search" class="search-input" placeholder="Search services..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" class="search-input" placeholder="🔍 Search services..." value="<?php echo htmlspecialchars($search); ?>">
                 </form>
             </div>
             
             <select class="filter-select" onchange="location.href='?status=<?php echo $filter_status; ?>&category=' + this.value + '&search=<?php echo urlencode($search); ?>'">
-                <option value="all" <?php echo $filter_category === 'all' ? 'selected' : ''; ?>>All Categories</option>
-                <option value="financial" <?php echo $filter_category === 'financial' ? 'selected' : ''; ?>>Financial</option>
-                <option value="investment" <?php echo $filter_category === 'investment' ? 'selected' : ''; ?>>Investment</option>
-                <option value="property" <?php echo $filter_category === 'property' ? 'selected' : ''; ?>>Property</option>
-                <option value="general" <?php echo $filter_category === 'general' ? 'selected' : ''; ?>>General</option>
+                <option value="all" <?php echo $filter_category === 'all' ? 'selected' : ''; ?>>All Categories (<?php echo $category_counts['all']; ?>)</option>
+                <option value="financial" <?php echo $filter_category === 'financial' ? 'selected' : ''; ?>>Financial (<?php echo $category_counts['financial']; ?>)</option>
+                <option value="investment" <?php echo $filter_category === 'investment' ? 'selected' : ''; ?>>Investment (<?php echo $category_counts['investment']; ?>)</option>
+                <option value="property" <?php echo $filter_category === 'property' ? 'selected' : ''; ?>>Property (<?php echo $category_counts['property']; ?>)</option>
+                <option value="general" <?php echo $filter_category === 'general' ? 'selected' : ''; ?>>General (<?php echo $category_counts['general']; ?>)</option>
             </select>
             
             <select class="filter-select" onchange="location.href='?category=<?php echo $filter_category; ?>&status=' + this.value + '&search=<?php echo urlencode($search); ?>'">
@@ -473,9 +528,8 @@ $client_website_url = 'http://localhost/Imar-Group-Website';
                         <div class="service-card-icon">
                             <?php if (!empty($service['icon_path'])): ?>
                                 <?php
-                                // FIX: Use exact same pattern as Gallery
-                                // NEW (4 levels):
-$icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
+                                // Use exact same pattern as Gallery (4-level traversal)
+                                $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
                                 ?>
                                 <img src="<?php echo $icon_display_path; ?>" 
                                      alt="<?php echo htmlspecialchars($service['title']); ?>"
@@ -506,15 +560,23 @@ $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($servi
                             </div>
                             
                             <div class="service-card-actions">
-                                <a href="<?php echo $client_website_url; ?>/services.php?service=<?php echo urlencode($service['slug']); ?>" 
+                                <?php
+                                // FIX: Build correct URL to client website services page
+                                // The client side uses JavaScript to open modals based on URL parameter
+                                // URL format: http://localhost/Imar-Group-Website/services.html?service=slug
+                                $client_service_url = $client_website_url . '/' . $services_page . '?service=' . urlencode($service['slug']);
+                                ?>
+                                <a href="<?php echo $client_service_url; ?>" 
                                    class="btn-small btn-view" 
                                    target="_blank" 
-                                   title="View on client website">View</a>
+                                   title="View service on client website: <?php echo htmlspecialchars($service['title']); ?>">
+                                   View
+                                </a>
                                 <a href="edit-service.php?id=<?php echo $service['id']; ?>" class="btn-small btn-edit">Edit</a>
                                 <?php if ($admin_role !== 'editor'): ?>
                                     <a href="?delete=<?php echo $service['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>" 
                                        class="btn-small btn-delete"
-                                       onclick="return confirm('Are you sure you want to delete this service?')">Delete</a>
+                                       onclick="return confirm('⚠️ Are you sure you want to delete this service?\n\nService: <?php echo htmlspecialchars($service['title']); ?>\n\nThis action cannot be undone!')">Delete</a>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -524,8 +586,25 @@ $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($servi
         <?php endif; ?>
 
         <a href="add-service.php" class="add-new-btn" title="Add New Service">+</a>
+        </div>
     </div>
 </div>
+
+<script>
+console.log('✓ Services Management loaded');
+console.log('✓ Client website URL:', '<?php echo $client_website_url; ?>');
+console.log('✓ Services page:', '<?php echo $services_page; ?>');
+console.log('✓ Icon paths using 4-level traversal (../../../../Imar-Group-Website/)');
+
+// Test View button URLs on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const viewButtons = document.querySelectorAll('.btn-view');
+    if (viewButtons.length > 0) {
+        console.log('✓ Found', viewButtons.length, 'View buttons');
+        console.log('✓ Example URL:', viewButtons[0].href);
+    }
+});
+</script>
 
 </body>
 </html>

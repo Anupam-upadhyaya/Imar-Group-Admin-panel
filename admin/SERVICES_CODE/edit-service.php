@@ -1,7 +1,12 @@
 <?php
 /**
- * IMAR Group Admin Panel - Edit Service
+ * IMAR Group Admin Panel - Edit Service (FIXED)
  * File: admin/SERVICES_CODE/edit-service.php
+ * 
+ * FIXES:
+ * 1. Proper icon path display using 4-level traversal (../../../../)
+ * 2. Consistent path handling with Gallery and Services modules
+ * 3. Maintain existing icon if no new upload
  */
 
 session_start();
@@ -25,10 +30,9 @@ $admin_id = $_SESSION['admin_id'];
 $error_message = '';
 $success_message = '';
 
-// Define absolute path for file operations
-$document_root = $_SERVER['DOCUMENT_ROOT'];
-$upload_base_abs = $document_root . '/Imar-Group-Website/images/Services/';
-$upload_base_url = 'images/Services/';
+// FIX: Use capital I in Images to match actual folder structure
+$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Images/Services/';
+$upload_base_url = 'Images/Services/'; // Database path (capital I)
 
 // Create directory if it doesn't exist
 if (!file_exists($upload_base_abs)) {
@@ -82,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $slug = $slug . '-' . time();
         }
         
+        // FIX: Keep existing icon by default
         $icon_path = $service['icon_path'];
         
         // Check if new icon is uploaded
@@ -95,23 +100,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($file['size'] > $max_size) {
                 $error_message = "File size exceeds 2MB limit.";
             } else {
-                // Delete old icon
+                // Delete old icon if it exists
                 if ($service['icon_path']) {
-                    $old_icon = $document_root . '/Imar-Group-Website/' . $service['icon_path'];
-                    if (file_exists($old_icon)) @unlink($old_icon);
+                    $old_icon_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/' . $service['icon_path'];
+                    if (file_exists($old_icon_abs)) {
+                        @unlink($old_icon_abs);
+                        error_log("✓ Deleted old icon: " . $old_icon_abs);
+                    }
                 }
                 
+                // Ensure directory exists
                 if (!file_exists($upload_base_abs)) {
                     mkdir($upload_base_abs, 0755, true);
                 }
                 
+                // Generate unique filename
                 $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                 $filename = 'service_' . time() . '_' . uniqid() . '.' . $file_extension;
                 $file_path_abs = $upload_base_abs . $filename;
+                
+                // FIX: Store with capital I (Images/Services/) to match actual folder
                 $icon_path = $upload_base_url . $filename;
                 
                 if (!move_uploaded_file($file['tmp_name'], $file_path_abs)) {
-                    $error_message = "Failed to upload new icon.";
+                    $error_message = "Failed to upload new icon. Check directory permissions.";
+                    // Revert to old icon on upload failure
+                    $icon_path = $service['icon_path'];
+                } else {
+                    error_log("✓ New icon uploaded: " . $file_path_abs);
+                    error_log("✓ Database path: " . $icon_path);
                 }
             }
         }
@@ -132,7 +149,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $result = $stmt->get_result();
                 $service = $result->fetch_assoc();
                 
-                echo "<script>setTimeout(function() { window.location.href = 'services.php'; }, 2000);</script>";
+                // Add cache clearing and redirect
+                echo "<script>
+                    // Clear cache
+                    if ('caches' in window) {
+                        caches.keys().then(function(names) {
+                            names.forEach(function(name) {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+                    // Redirect after 2 seconds
+                    setTimeout(function() {
+                        window.location.href = 'services.php?refresh=' + Date.now();
+                    }, 2000);
+                </script>";
             } else {
                 $error_message = "Database error: " . $stmt->error;
             }
@@ -156,12 +187,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .form-group input:focus, .form-group textarea:focus, .form-group select:focus { border-color: #4f46e5; outline: none; }
         .form-group textarea { resize: vertical; min-height: 100px; font-family: inherit; }
         .form-group textarea.content-editor { min-height: 400px; }
-        .current-icon { border: 2px solid #e5e7eb; border-radius: 12px; padding: 20px; text-align: center; background: #f9fafb; margin-bottom: 15px; }
-        .current-icon img { max-width: 120px; max-height: 120px; object-fit: contain; }
-        .current-icon p { margin-top: 10px; color: #6b7280; font-size: 13px; }
+        .current-icon { border: 2px solid #0557faff; border-radius: 12px; padding: 20px; text-align: center; background: #0b9c7393; margin-bottom: 15px; position: relative; }
+        .current-icon img { max-width: 150px; max-height: 150px; object-fit: contain; display: block; margin: 0 auto; }
+        .current-icon .no-icon { color: #9ca3af; font-style: italic; padding: 40px 20px; }
+        .current-icon p { margin-top: 15px; color: #ffffffff; font-size: 13px; }
+        .current-icon .icon-path { margin-top: 8px; font-size: 11px; color: #9ca3af; font-family: monospace; word-break: break-all; }
         .icon-upload-area { border: 2px dashed #d1d5db; border-radius: 12px; padding: 40px; text-align: center; background: #f9fafb; cursor: pointer; transition: all 0.3s; }
         .icon-upload-area:hover { border-color: #4f46e5; background: #eef2ff; }
-        .icon-preview { max-width: 120px; max-height: 120px; margin-top: 15px; border-radius: 8px; display: none; }
+        .icon-upload-area.dragover { border-color: #4f46e5; background: #eef2ff; }
+        .icon-preview { max-width: 120px; max-height: 120px; margin: 15px auto 0; border-radius: 8px; display: none; }
         .checkbox-group { display: flex; align-items: center; gap: 10px; }
         .checkbox-group input[type="checkbox"] { width: 20px; height: 20px; cursor: pointer; }
         .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
@@ -177,6 +211,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
         .required { color: #ef4444; }
         .helper-text { font-size: 12px; color: #6b7280; margin-top: 5px; }
+        .upload-info { background: #eff6ff; border: 1px solid #3b82f6; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 12px; color: #1e40af; display: none; }
     </style>
 </head>
 <body>
@@ -211,19 +246,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" enctype="multipart/form-data" id="serviceForm">
             <div class="form-container">
-                <!-- Current Icon -->
+                <!-- Current Icon Display -->
                 <div class="form-group">
                     <label>Current Service Icon</label>
                     <div class="current-icon">
-                        <?php if ($service['icon_path']): ?>
-    <img src="/<?php echo htmlspecialchars(ltrim($service['icon_path'], '/')); ?>" 
-         alt="<?php echo htmlspecialchars($service['title']); ?>">
-<?php else: ?>
-                            <svg width="80" height="80" viewBox="0 0 24 24" fill="#9ca3af">
-                                <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
-                            </svg>
+                        <?php if (!empty($service['icon_path'])): ?>
+                            <?php
+                            // FIX: Use 4-level traversal (../../../../) to match services.php display pattern
+                            $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
+                            ?>
+                            <img src="<?php echo $icon_display_path; ?>" 
+                                 alt="<?php echo htmlspecialchars($service['title']); ?>"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                            <div class="no-icon" style="display: none;">
+                                <p style="color: #ef4444; margin-top: 10px;">Image failed to load</p>
+                            </div>
+                            <p>📅 Uploaded: <?php echo date('M d, Y h:i A', strtotime($service['created_at'])); ?></p>
+                        <?php else: ?>
+                            <div class="no-icon">
+                                <svg width="80" height="80" viewBox="0 0 24 24" fill="#9ca3af" style="margin: 0 auto;">
+                                    <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
+                                </svg>
+                                <p>No icon uploaded yet</p>
+                            </div>
                         <?php endif; ?>
-                        <p>Uploaded: <?php echo date('M d, Y', strtotime($service['created_at'])); ?></p>
                     </div>
                 </div>
 
@@ -232,14 +278,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <label>Replace Icon (Optional)</label>
                     <div class="icon-upload-area" id="uploadArea">
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="#9ca3af">
-                            <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
+                            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
                         </svg>
                         <h3 style="margin: 15px 0 5px 0; color: #374151;">Click to upload new icon</h3>
-                        <p style="color: #9ca3af; font-size: 13px;">PNG, SVG, JPG (max 2MB)</p>
+                        <p style="color: #9ca3af; font-size: 13px;">PNG, SVG, JPG, WebP (max 2MB)</p>
                         <input type="file" name="icon" id="iconInput" accept="image/*" style="display: none;">
                     </div>
                     <img id="iconPreview" class="icon-preview" alt="Preview">
-                    <div class="helper-text">Leave empty to keep current icon</div>
+                    <div class="upload-info" id="uploadInfo">
+                        <strong>📤 New Upload:</strong> <span id="uploadFilename"></span> (<span id="uploadSize"></span>)
+                    </div>
+                    <div class="helper-text">⚠️ Leave empty to keep current icon. Uploading a new icon will replace the existing one.</div>
                 </div>
 
                 <!-- Title -->
@@ -252,20 +301,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group">
                     <label for="slug">URL Slug <span class="required">*</span></label>
                     <input type="text" id="slug" name="slug" value="<?php echo htmlspecialchars($service['slug']); ?>" required>
-                    <div class="helper-text">SEO-friendly URL identifier</div>
+                    <div class="helper-text">SEO-friendly URL identifier (e.g., financial-consulting)</div>
                 </div>
 
                 <!-- Short Description -->
                 <div class="form-group">
                     <label for="short_description">Short Description <span class="required">*</span></label>
                     <textarea id="short_description" name="short_description" rows="3" required><?php echo htmlspecialchars($service['short_description']); ?></textarea>
+                    <div class="helper-text">Brief overview shown on service cards (recommended 150-200 characters)</div>
                 </div>
 
                 <!-- Full Content -->
                 <div class="form-group">
                     <label for="full_content">Full Service Details</label>
                     <textarea id="full_content" name="full_content" class="content-editor"><?php echo htmlspecialchars($service['full_content']); ?></textarea>
-                    <div class="helper-text">You can use HTML tags for formatting</div>
+                    <div class="helper-text">Complete service description. You can use HTML tags for formatting.</div>
                 </div>
 
                 <!-- Category, Status, Display Order -->
@@ -292,6 +342,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group">
                         <label for="display_order">Display Order</label>
                         <input type="number" id="display_order" name="display_order" value="<?php echo $service['display_order']; ?>" min="0">
+                        <div class="helper-text">Lower numbers appear first</div>
                     </div>
                 </div>
 
@@ -300,14 +351,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="is_featured" name="is_featured" <?php echo $service['is_featured'] ? 'checked' : ''; ?>>
-                            <label for="is_featured" style="margin: 0;">Mark as Featured Service</label>
+                            <label for="is_featured" style="margin: 0;">⭐ Mark as Featured Service</label>
                         </div>
                     </div>
 
                     <div class="form-group">
                         <div class="checkbox-group">
                             <input type="checkbox" id="has_offer" name="has_offer" <?php echo $service['has_offer'] ? 'checked' : ''; ?>>
-                            <label for="has_offer" style="margin: 0;">This Service Has an Active Offer</label>
+                            <label for="has_offer" style="margin: 0;">🏷️ This Service Has an Active Offer</label>
                         </div>
                     </div>
                 </div>
@@ -316,15 +367,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="form-group" id="offerTextGroup" style="display: <?php echo $service['has_offer'] ? 'block' : 'none'; ?>;">
                     <label for="offer_text">Offer Details (Optional)</label>
                     <input type="text" id="offer_text" name="offer_text" value="<?php echo htmlspecialchars($service['offer_text'] ?? ''); ?>" placeholder="e.g., 20% off for new clients">
+                    <div class="helper-text">Brief description of the special offer</div>
                 </div>
 
                 <!-- Stats Display -->
                 <div class="form-row" style="padding: 20px; background: #f9fafb; border-radius: 8px; margin-top: 20px;">
                     <div style="font-size: 14px; color: #6b7280;">
-                        <strong>Created:</strong> <?php echo date('M d, Y h:i A', strtotime($service['created_at'])); ?>
+                        <strong>📅 Created:</strong> <?php echo date('M d, Y h:i A', strtotime($service['created_at'])); ?>
                     </div>
                     <div style="font-size: 14px; color: #6b7280;">
-                        <strong>Views:</strong> <?php echo number_format($service['views']); ?>
+                        <strong>👁️ Views:</strong> <?php echo number_format($service['views']); ?>
                     </div>
                 </div>
 
@@ -341,44 +393,89 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+// Icon upload functionality
 const uploadArea = document.getElementById('uploadArea');
 const iconInput = document.getElementById('iconInput');
 const iconPreview = document.getElementById('iconPreview');
+const uploadInfo = document.getElementById('uploadInfo');
+const uploadFilename = document.getElementById('uploadFilename');
+const uploadSize = document.getElementById('uploadSize');
+
+function displayImagePreview(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        iconPreview.src = e.target.result;
+        iconPreview.style.display = 'block';
+        
+        // Show upload info
+        uploadInfo.style.display = 'block';
+        uploadFilename.textContent = file.name;
+        uploadSize.textContent = (file.size / 1024).toFixed(2) + ' KB';
+    };
+    reader.readAsDataURL(file);
+}
 
 uploadArea.addEventListener('click', () => iconInput.click());
 
 iconInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            iconPreview.src = e.target.result;
-            iconPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+        displayImagePreview(file);
     }
 });
 
-uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); uploadArea.classList.add('dragover'); });
-uploadArea.addEventListener('dragleave', () => { uploadArea.classList.remove('dragover'); });
+// Drag and drop
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
 uploadArea.addEventListener('drop', (e) => {
     e.preventDefault();
     uploadArea.classList.remove('dragover');
+    
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
         iconInput.files = e.dataTransfer.files;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            iconPreview.src = e.target.result;
-            iconPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+        displayImagePreview(file);
     }
 });
 
+// Show/hide offer text field
 document.getElementById('has_offer').addEventListener('change', function() {
     document.getElementById('offerTextGroup').style.display = this.checked ? 'block' : 'none';
 });
+
+// Form validation
+document.getElementById('serviceForm').addEventListener('submit', function(e) {
+    const title = document.getElementById('title').value.trim();
+    const shortDesc = document.getElementById('short_description').value.trim();
+    
+    if (!title) {
+        e.preventDefault();
+        alert('Please enter a service title');
+        return false;
+    }
+    
+    if (!shortDesc) {
+        e.preventDefault();
+        alert('Please enter a short description');
+        return false;
+    }
+    
+    const icon = iconInput.files[0];
+    if (icon && icon.size > 2 * 1024 * 1024) {
+        e.preventDefault();
+        alert('Icon size must be less than 2MB');
+        return false;
+    }
+});
+
+console.log('✓ Edit Service form loaded - Icon display fixed with 4-level traversal');
 </script>
 
 </body>
