@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Dec 22, 2025 at 12:08 PM
+-- Generation Time: Dec 22, 2025 at 12:33 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -515,15 +515,27 @@ INSERT INTO `admins` (`id`, `username`, `email`, `password`, `name`, `full_name`
 
 CREATE TABLE `admin_users` (
   `id` int(11) NOT NULL,
+  `username` varchar(50) NOT NULL,
   `name` varchar(255) NOT NULL,
+  `full_name` varchar(100) DEFAULT NULL,
   `email` varchar(255) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` enum('super_admin','admin','editor') NOT NULL DEFAULT 'editor',
+  `avatar` varchar(255) DEFAULT NULL,
   `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `last_login` datetime DEFAULT NULL,
+  `last_ip` varchar(45) DEFAULT NULL,
   `dob` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `admin_users`
+--
+
+INSERT INTO `admin_users` (`id`, `username`, `name`, `full_name`, `email`, `password`, `role`, `avatar`, `status`, `last_login`, `last_ip`, `dob`, `created_at`, `updated_at`) VALUES
+(3, 'admin', 'Anupam Upadhyaya', 'Administrator', 'admin@imargroup.com', '$2y$12$N5oo41.PdoSmCr3QdEUaN.peplW.4bR5b9ZBZDSlwCkMdSZ8f.66.', 'super_admin', NULL, 'active', '2025-12-22 16:48:43', '::1', NULL, '2025-12-03 05:29:35', '2025-12-22 11:03:43');
 
 -- --------------------------------------------------------
 
@@ -840,8 +852,13 @@ ALTER TABLE `admins`
 ALTER TABLE `admin_users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `email` (`email`),
+  ADD UNIQUE KEY `username` (`username`),
+  ADD UNIQUE KEY `email_unique` (`email`),
   ADD KEY `role` (`role`),
-  ADD KEY `status` (`status`);
+  ADD KEY `status` (`status`),
+  ADD KEY `idx_email` (`email`),
+  ADD KEY `idx_username` (`username`),
+  ADD KEY `idx_status` (`status`);
 
 --
 -- Indexes for table `blog_categories`
@@ -933,7 +950,7 @@ ALTER TABLE `admins`
 -- AUTO_INCREMENT for table `admin_users`
 --
 ALTER TABLE `admin_users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `blog_categories`
