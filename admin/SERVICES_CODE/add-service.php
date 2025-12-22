@@ -1,7 +1,9 @@
 <?php
 /**
- * IMAR Group Admin Panel - Add Service
+ * IMAR Group Admin Panel - Add Service (FIXED)
  * File: admin/SERVICES_CODE/add-service.php
+ * 
+ * FIX: Corrected to store EXACT path like Gallery (Images/Services/ not images/Services/)
  */
 
 session_start();
@@ -25,10 +27,9 @@ $admin_id = $_SESSION['admin_id'];
 $error_message = '';
 $success_message = '';
 
-// Define absolute path for file operations
-$document_root = $_SERVER['DOCUMENT_ROOT'];
-$upload_base_abs = $document_root . '/Imar-Group-Website/images/Services/';
-$upload_base_url = 'images/Services/';
+// FIX: Match Gallery pattern exactly - use capital I in Images
+$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Images/Services/';
+$upload_base_url = 'Images/Services/'; // Database path (capital I to match actual folder)
 
 // Create directory if it doesn't exist
 if (!file_exists($upload_base_abs)) {
@@ -80,17 +81,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($file['size'] > $max_size) {
                 $error_message = "File size exceeds 2MB limit.";
             } else {
+                // Ensure directory exists
                 if (!file_exists($upload_base_abs)) {
                     mkdir($upload_base_abs, 0755, true);
                 }
                 
+                // Generate unique filename
                 $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                 $filename = 'service_' . time() . '_' . uniqid() . '.' . $file_extension;
                 $file_path_abs = $upload_base_abs . $filename;
-                $icon_path = $upload_base_url . $filename;
+                
+                // FIX: Store with capital I (Images/Services/) to match actual folder
+                $icon_path = $upload_base_url . $filename; // e.g., 'Images/Services/service_123456.png'
                 
                 if (!move_uploaded_file($file['tmp_name'], $file_path_abs)) {
-                    $error_message = "Failed to upload icon.";
+                    $error_message = "Failed to upload icon. Check directory permissions.";
+                    $icon_path = null;
+                } else {
+                    // Success - log for debugging
+                    error_log("✓ Service icon uploaded: " . $file_path_abs);
+                    error_log("✓ Database path: " . $icon_path);
                 }
             }
         }
@@ -103,10 +113,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $service_id = $stmt->insert_id;
                 $auth->logActivity($admin_id, 'added_service', 'services', $service_id);
                 
-                $success_message = "Service created successfully!";
-                echo "<script>setTimeout(function() { window.location.href = 'services.php'; }, 2000);</script>";
+                $success_message = "Service created successfully! ID: " . $service_id;
+                
+                // Add cache clearing and redirect (like Gallery)
+                echo "<script>
+                    // Clear cache
+                    if ('caches' in window) {
+                        caches.keys().then(function(names) {
+                            names.forEach(function(name) {
+                                caches.delete(name);
+                            });
+                        });
+                    }
+                    // Redirect after 2 seconds
+                    setTimeout(function() {
+                        window.location.href = 'services.php?refresh=' + Date.now();
+                    }, 2000);
+                </script>";
             } else {
                 $error_message = "Database error: " . $stmt->error;
+                
+                // Delete uploaded file if database insert fails
+                if ($icon_path && file_exists($file_path_abs)) {
+                    @unlink($file_path_abs);
+                }
             }
         }
     }
@@ -179,6 +209,10 @@ $suggested_order = $max_order + 1;
             transition: all 0.3s;
         }
         .icon-upload-area:hover {
+            border-color: #4f46e5;
+            background: #eef2ff;
+        }
+        .icon-upload-area.dragover {
             border-color: #4f46e5;
             background: #eef2ff;
         }
@@ -262,6 +296,15 @@ $suggested_order = $max_order + 1;
             color: #6b7280;
             margin-top: 5px;
         }
+        .upload-info {
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-size: 12px;
+            color: #1e40af;
+        }
     </style>
 </head>
 <body>
@@ -318,11 +361,14 @@ $suggested_order = $max_order + 1;
                         <svg width="48" height="48" viewBox="0 0 24 24" fill="#9ca3af">
                             <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
                         </svg>
-                        <h3 style="margin: 15px 0 5px 0; color: #374151;">Click to upload icon</h3>
-                        <p style="color: #9ca3af; font-size: 13px;">PNG, SVG, JPG (max 2MB)</p>
+                        <h3 style="margin: 15px 0 5px 0; color: #374151;">Click to upload or drag and drop</h3>
+                        <p style="color: #9ca3af; font-size: 13px;">PNG, SVG, JPG, WebP (max 2MB)</p>
                         <input type="file" name="icon" id="iconInput" accept="image/*" style="display: none;">
                     </div>
                     <img id="iconPreview" class="icon-preview" alt="Preview">
+                    <div class="upload-info" id="uploadInfo" style="display: none;">
+                        <strong>ℹ️ Upload Info:</strong> <span id="uploadFilename"></span> (<span id="uploadSize"></span>)
+                    </div>
                 </div>
 
                 <!-- Short Description -->
@@ -411,47 +457,51 @@ $suggested_order = $max_order + 1;
 const uploadArea = document.getElementById('uploadArea');
 const iconInput = document.getElementById('iconInput');
 const iconPreview = document.getElementById('iconPreview');
+const uploadInfo = document.getElementById('uploadInfo');
+const uploadFilename = document.getElementById('uploadFilename');
+const uploadSize = document.getElementById('uploadSize');
 
 uploadArea.addEventListener('click', () => iconInput.click());
+
+function displayImagePreview(file) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        iconPreview.src = e.target.result;
+        iconPreview.style.display = 'block';
+        
+        // Show upload info
+        uploadInfo.style.display = 'block';
+        uploadFilename.textContent = file.name;
+        uploadSize.textContent = (file.size / 1024).toFixed(2) + ' KB';
+    };
+    reader.readAsDataURL(file);
+}
 
 iconInput.addEventListener('change', function(e) {
     const file = e.target.files[0];
     if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            iconPreview.src = e.target.result;
-            iconPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+        displayImagePreview(file);
     }
 });
 
 // Drag and drop
 uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
-    uploadArea.style.borderColor = '#4f46e5';
-    uploadArea.style.background = '#eef2ff';
+    uploadArea.classList.add('dragover');
 });
 
 uploadArea.addEventListener('dragleave', () => {
-    uploadArea.style.borderColor = '#d1d5db';
-    uploadArea.style.background = '#f9fafb';
+    uploadArea.classList.remove('dragover');
 });
 
 uploadArea.addEventListener('drop', (e) => {
     e.preventDefault();
-    uploadArea.style.borderColor = '#d1d5db';
-    uploadArea.style.background = '#f9fafb';
+    uploadArea.classList.remove('dragover');
     
     const file = e.dataTransfer.files[0];
     if (file && file.type.startsWith('image/')) {
         iconInput.files = e.dataTransfer.files;
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            iconPreview.src = e.target.result;
-            iconPreview.style.display = 'block';
-        };
-        reader.readAsDataURL(file);
+        displayImagePreview(file);
     }
 });
 
@@ -467,6 +517,33 @@ document.getElementById('title').addEventListener('input', function() {
 document.getElementById('has_offer').addEventListener('change', function() {
     document.getElementById('offerTextGroup').style.display = this.checked ? 'block' : 'none';
 });
+
+// Form validation
+document.getElementById('serviceForm').addEventListener('submit', function(e) {
+    const title = document.getElementById('title').value.trim();
+    const shortDesc = document.getElementById('short_description').value.trim();
+    
+    if (!title) {
+        e.preventDefault();
+        alert('Please enter a service title');
+        return false;
+    }
+    
+    if (!shortDesc) {
+        e.preventDefault();
+        alert('Please enter a short description');
+        return false;
+    }
+    
+    const icon = iconInput.files[0];
+    if (icon && icon.size > 2 * 1024 * 1024) {
+        e.preventDefault();
+        alert('Icon size must be less than 2MB');
+        return false;
+    }
+});
+
+console.log('✓ Service form loaded - Images/Services/ path configured');
 </script>
 
 </body>
