@@ -304,7 +304,7 @@ a {
 .sidebar-logo {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 5px;
 }
 
 .sidebar-logo svg {

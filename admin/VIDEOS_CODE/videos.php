@@ -367,7 +367,7 @@ $suggested_order = $max_order + 1;
 </head>
 <body>
 
-<<div class="dashboard">
+<div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
     <!-- MAIN CONTENT -->

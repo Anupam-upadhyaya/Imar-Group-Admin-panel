@@ -173,11 +173,11 @@ $_SESSION['admin_avatar'] = $user['avatar'];
         }
         
         return [
-            'id' => $_SESSION['user_id'] ?? null,
-            'email' => $_SESSION['user_email'] ?? null,
-            'name' => $_SESSION['user_name'] ?? null,
-            'role' => $_SESSION['user_role'] ?? null,
-            'avatar' => $_SESSION['user_avatar'] ?? null
+            'id' => $_SESSION['admin_id'] ?? null,
+        'email' => $_SESSION['admin_email'] ?? null,
+        'name' => $_SESSION['admin_name'] ?? null,
+        'role' => $_SESSION['admin_role'] ?? null,
+        'avatar' => $_SESSION['admin_avatar'] ?? null
         ];
     }
     
@@ -290,25 +290,25 @@ $_SESSION['admin_avatar'] = $user['avatar'];
     /**
      * Check user role/permission
      */
-    public function hasRole($role) {
-        if (!$this->isLoggedIn()) {
-            return false;
-        }
-        
-        $userRole = $_SESSION['user_role'] ?? '';
-        
-        // Super admin has all permissions
-        if ($userRole === 'super_admin') {
-            return true;
-        }
-        
-        // Check specific role
-        if (is_array($role)) {
-            return in_array($userRole, $role);
-        }
-        
-        return $userRole === $role;
+   public function hasRole($role) {
+    if (!$this->isLoggedIn()) {
+        return false;
     }
+    
+    $userRole = $_SESSION['admin_role'] ?? '';
+    
+    // Super admin has all permissions
+    if ($userRole === 'super_admin') {
+        return true;
+    }
+    
+    // Check specific role
+    if (is_array($role)) {
+        return in_array($userRole, $role);
+    }
+    
+    return $userRole === $role;
+}
     
     /**
      * Require login - redirect if not logged in

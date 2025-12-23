@@ -24,9 +24,9 @@ if (!$auth->isLoggedIn()) {
 }
 
 // Get current user info - FIXED: Use correct session variable names
-$admin_name = $_SESSION['user_name'] ?? 'Admin';
-$admin_email = $_SESSION['user_email'] ?? '';
-$admin_role = $_SESSION['user_role'] ?? 'editor';
+$admin_name = $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $_SESSION['admin_email'] ?? '';
+$admin_role = $_SESSION['admin_role'] ?? 'editor';
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
 // Fetch dashboard statistics
@@ -105,14 +105,14 @@ if ($hour < 12) {
     <div class="sidebar">
         <div class="sidebar-header">
             <div class="sidebar-logo">
-                <svg viewBox="0 0 24 24">
-                    <path d="M3 3h8v8H3V3zm10 0h8v8h-8V3zM3 13h8v8H3v-8zm13.66-2.66l6.94 6.94-6.94 6.94-6.94-6.94 6.94-6.94z"/>
-                </svg>
-                <div class="sidebar-logo-text">
-                    <h2>IMAR Group</h2>
-                    <p>Admin Panel</p>
-                </div>
-            </div>
+    <div class="logo-container">
+        <img src="../assets/logo.png" alt="IMAR Group Logo">
+    </div>
+    <div class="sidebar-logo-text">
+        <h2>IMAR Group</h2>
+        <p>Admin Panel</p>
+    </div>
+</div>
         </div>
 
         <div class="sidebar-menu">
