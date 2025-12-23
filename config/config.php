@@ -22,6 +22,8 @@ define('DB_CHARSET', 'utf8mb4');
 // Site Configuration
 define('SITE_NAME', 'IMAR Group Admin');
 define('SITE_URL', 'http://localhost/Imar_Group_Admin_panel/admin');
+
+// Define BASE_PATH only once
 if (!defined('BASE_PATH')) {
     define('BASE_PATH', dirname(__DIR__));
 }
@@ -36,16 +38,14 @@ define('MAX_LOGIN_ATTEMPTS', 5);
 define('LOGIN_LOCKOUT_TIME', 900); // 15 minutes in seconds
 
 // File Upload Configuration
-define('BASE_PATH', __DIR__ . '/../'); // Absolute path to project root
 define('BASE_URL', '/'); // Adjust if site in subfolder on production
 
-define('UPLOAD_PATH', BASE_PATH . 'uploads/');
+define('UPLOAD_PATH', BASE_PATH . '/uploads/');
 define('GALLERY_PATH', UPLOAD_PATH . 'gallery/');
 define('BLOG_PATH', UPLOAD_PATH . 'blog/');
 
 define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg','image/png','image/gif','image/webp']);
-
 
 // Pagination
 define('ITEMS_PER_PAGE', 20);
@@ -114,14 +114,8 @@ $db = Database::getInstance();
 $conn = $db->getConnection();
 
 // Legacy compatibility: Create simple connection variables for older code
-// This allows both $conn (object-oriented) and traditional mysqli usage
 $servername = DB_HOST;
 $username = DB_USER;
 $password = DB_PASS;
 $dbname = DB_NAME;
-
-// Note: $conn is already created above via the Database class
-// This ensures compatibility with both:
-// 1. Modern code using Database::getInstance()->getConnection()
-// 2. Legacy code expecting $conn variable directly
 ?>

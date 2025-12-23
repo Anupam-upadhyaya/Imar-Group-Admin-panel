@@ -23,10 +23,10 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_email = $_SESSION['admin_email'] ?? '';
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info - FIXED: Use correct session variable names
+$admin_name = $_SESSION['user_name'] ?? 'Admin';
+$admin_email = $_SESSION['user_email'] ?? '';
+$admin_role = $_SESSION['user_role'] ?? 'editor';
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
 // Fetch dashboard statistics
@@ -44,8 +44,8 @@ $stats['gallery_count'] = $result->fetch_assoc()['count'] ?? 0;
 $result = $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE status = 'published'");
 $stats['blog_count'] = $result->fetch_assoc()['count'] ?? 0;
 
-// Total admin users
-$result = $conn->query("SELECT COUNT(*) as count FROM admins WHERE status = 'active'");
+// Total admin users - FIXED: Changed from admins_users to admin_users
+$result = $conn->query("SELECT COUNT(*) as count FROM admin_users WHERE status = 'active'");
 $stats['admin_count'] = $result->fetch_assoc()['count'] ?? 0;
 
 // Recent inquiries
@@ -66,12 +66,12 @@ while ($row = $result->fetch_assoc()) {
     $recent_inquiries[] = $row;
 }
 
-// Recent activities
+// Recent activities - FIXED: Changed from admins to admin_users
 $recent_activities = [];
 $result = $conn->query("
-    SELECT al.action, al.table_affected, al.created_at, a.full_name 
+    SELECT al.action, al.table_affected, al.created_at, a.name as full_name 
     FROM activity_logs al 
-    LEFT JOIN admins a ON al.admin_id = a.id 
+    LEFT JOIN admin_users a ON al.admin_id = a.id 
     ORDER BY al.created_at DESC 
     LIMIT 8
 ");

@@ -33,8 +33,10 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
         
-        // Log activity
-        $auth->logActivity($admin_id, 'deleted_gallery_item', 'gallery', $delete_id);
+        // Log activity only if admin_id exists
+        if ($admin_id) {
+            $auth->logActivity($admin_id, 'deleted_gallery_item', 'gallery', $delete_id);
+        }
         
         $success_message = "Gallery item deleted successfully!";
     }

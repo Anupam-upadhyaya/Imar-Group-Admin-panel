@@ -2,38 +2,68 @@
 /**
  * IMAR Group Admin Panel - Authentication Class
  * File: includes/classes/Auth.php
+ * Updated to use admin_users table
  */
+
+// Prevent direct access
+if (!defined('SECURE_ACCESS')) {
+    die('Direct access not permitted');
+}
 
 class Auth {
     private $conn;
+    private $table = 'admin_users';
     
-    public function __construct($db_connection) {
-        $this->conn = $db_connection;
+    public function __construct($conn) {
+        $this->conn = $conn;
+        $this->initSession();
     }
     
     /**
-     * Secure Login Method
+     * Initialize secure session
+     */
+    private function initSession() {
+        if (session_status() === PHP_SESSION_NONE) {
+            // Set secure session parameters
+            ini_set('session.cookie_httponly', 1);
+            ini_set('session.use_only_cookies', 1);
+            ini_set('session.cookie_secure', isset($_SERVER['HTTPS'])); // Only for HTTPS
+            
+            session_name(SESSION_NAME);
+            session_start();
+            
+            // Regenerate session ID periodically for security
+            if (!isset($_SESSION['created'])) {
+                $_SESSION['created'] = time();
+            } else if (time() - $_SESSION['created'] > 1800) {
+                session_regenerate_id(true);
+                $_SESSION['created'] = time();
+            }
+        }
+    }
+    
+    /**
+     * Login user
      */
     public function login($email, $password) {
-        // Clean input
-        $email = $this->sanitizeEmail($email);
-        
-        // Check if account is locked
-        if ($this->isAccountLocked($email)) {
+        // Check for too many failed login attempts
+        if ($this->isLoginLocked($email)) {
             return [
                 'success' => false,
-                'message' => 'Too many failed attempts. Account locked for 15 minutes.'
+                'message' => 'Too many failed login attempts. Please try again in 15 minutes.'
             ];
         }
         
-        // Get user from database using prepared statement
-        $stmt = $this->conn->prepare("
-            SELECT id, username, email, password, full_name, role, status 
-            FROM admins 
-            WHERE email = ? 
-            LIMIT 1
-        ");
+        // Sanitize email
+        $email = $this->conn->real_escape_string(trim($email));
         
+        // Get user from database
+        $sql = "SELECT id, username, name, email, password, role, status, avatar 
+                FROM {$this->table} 
+                WHERE email = ? 
+                LIMIT 1";
+        
+        $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("s", $email);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -42,7 +72,7 @@ class Auth {
             $this->logLoginAttempt($email, false);
             return [
                 'success' => false,
-                'message' => 'Invalid email or password'
+                'message' => 'Invalid email or password.'
             ];
         }
         
@@ -50,107 +80,123 @@ class Auth {
         
         // Check if account is active
         if ($user['status'] !== 'active') {
-            return [
-                'success' => false,
-                'message' => 'Account is inactive. Contact administrator.'
-            ];
-        }
-        
-        // Verify password using bcrypt
-        if (password_verify($password, $user['password'])) {
-            // Password correct - clear failed attempts
-            $this->clearLoginAttempts($email);
-            
-            // Regenerate session ID for security
-            session_regenerate_id(true);
-            
-            // Set session variables
-            $_SESSION['admin_id'] = $user['id'];
-            $_SESSION['admin_email'] = $user['email'];
-            $_SESSION['admin_username'] = $user['username'];
-            $_SESSION['admin_name'] = $user['full_name'];
-            $_SESSION['admin_role'] = $user['role'];
-            $_SESSION['admin_logged_in'] = true;
-            $_SESSION['last_activity'] = time();
-            
-            // Update last login
-            $this->updateLastLogin($user['id']);
-            
-            // Log successful login
-            $this->logLoginAttempt($email, true);
-            $this->logActivity($user['id'], 'login', 'admins', $user['id']);
-            
-            return [
-                'success' => true,
-                'message' => 'Login successful',
-                'user' => [
-                    'name' => $user['full_name'],
-                    'role' => $user['role']
-                ]
-            ];
-            
-        } else {
-            // Wrong password
             $this->logLoginAttempt($email, false);
             return [
                 'success' => false,
-                'message' => 'Invalid email or password'
+                'message' => 'Your account has been deactivated. Please contact administrator.'
             ];
         }
-    }
-    
-    /**
-     * Check if user is logged in
-     */
-    public function isLoggedIn() {
-        if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) {
-            return false;
+        
+        // Verify password
+        if (!password_verify($password, $user['password'])) {
+            $this->logLoginAttempt($email, false);
+            return [
+                'success' => false,
+                'message' => 'Invalid email or password.'
+            ];
         }
         
-        // Check session timeout
-        if (isset($_SESSION['last_activity'])) {
-            $inactive = time() - $_SESSION['last_activity'];
-            if ($inactive > SESSION_LIFETIME) {
-                $this->logout();
-                return false;
-            }
-        }
-        
+        // Login successful - Set session variables
+$_SESSION['admin_id'] = $user['id'];
+$_SESSION['admin_email'] = $user['email'];
+$_SESSION['admin_name'] = $user['name'];
+$_SESSION['admin_role'] = $user['role'];
+$_SESSION['admin_avatar'] = $user['avatar'];
+        $_SESSION['logged_in'] = true;
         $_SESSION['last_activity'] = time();
-        return true;
+        
+        // Update last login
+        $this->updateLastLogin($user['id']);
+        
+        // Log successful login
+        $this->logLoginAttempt($email, true);
+        $this->logActivity($user['id'], 'login');
+        
+        // Clear failed login attempts
+        $this->clearLoginAttempts($email);
+        
+        return [
+            'success' => true,
+            'message' => 'Login successful!'
+        ];
     }
     
     /**
      * Logout user
      */
     public function logout() {
-        if (isset($_SESSION['admin_id'])) {
-            $this->logActivity($_SESSION['admin_id'], 'logout', 'admins', $_SESSION['admin_id']);
+        if (isset($_SESSION['user_id'])) {
+            $this->logActivity($_SESSION['user_id'], 'logout');
         }
         
+        // Unset all session variables
         $_SESSION = array();
         
+        // Destroy session cookie
         if (isset($_COOKIE[session_name()])) {
             setcookie(session_name(), '', time() - 3600, '/');
         }
         
+        // Destroy session
         session_destroy();
+        
+        return true;
     }
     
     /**
-     * Check if account is locked due to failed attempts
+     * Check if user is logged in
      */
-    private function isAccountLocked($email) {
-        $stmt = $this->conn->prepare("
-            SELECT COUNT(*) as attempts 
-            FROM login_attempts 
-            WHERE email = ? 
-            AND success = 0 
-            AND attempt_time > DATE_SUB(NOW(), INTERVAL ? SECOND)
-        ");
+    public function isLoggedIn() {
+        if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
+            return false;
+        }
         
-        $lockout = LOGIN_LOCKOUT_TIME;
-        $stmt->bind_param("si", $email, $lockout);
+        // Check session timeout
+        if (isset($_SESSION['last_activity']) && 
+            (time() - $_SESSION['last_activity'] > SESSION_LIFETIME)) {
+            $this->logout();
+            return false;
+        }
+        
+        // Update last activity time
+        $_SESSION['last_activity'] = time();
+        
+        return true;
+    }
+    
+    /**
+     * Get current user data
+     */
+    public function getCurrentUser() {
+        if (!$this->isLoggedIn()) {
+            return null;
+        }
+        
+        return [
+            'id' => $_SESSION['user_id'] ?? null,
+            'email' => $_SESSION['user_email'] ?? null,
+            'name' => $_SESSION['user_name'] ?? null,
+            'role' => $_SESSION['user_role'] ?? null,
+            'avatar' => $_SESSION['user_avatar'] ?? null
+        ];
+    }
+    
+    /**
+     * Check if login is locked due to failed attempts
+     */
+    private function isLoginLocked($email) {
+        $email = $this->conn->real_escape_string($email);
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $lockout_time = date('Y-m-d H:i:s', time() - LOGIN_LOCKOUT_TIME);
+        
+        $sql = "SELECT COUNT(*) as attempts 
+                FROM login_attempts 
+                WHERE (email = ? OR ip_address = ?) 
+                AND success = 0 
+                AND attempt_time > ?";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("sss", $email, $ip, $lockout_time);
         $stmt->execute();
         $result = $stmt->get_result();
         $row = $result->fetch_assoc();
@@ -162,117 +208,128 @@ class Auth {
      * Log login attempt
      */
     private function logLoginAttempt($email, $success) {
-        $ip = $this->getClientIP();
-        $stmt = $this->conn->prepare("
-            INSERT INTO login_attempts (email, ip_address, attempt_time, success) 
-            VALUES (?, ?, NOW(), ?)
-        ");
+        $email = $this->conn->real_escape_string($email);
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $success_flag = $success ? 1 : 0;
         
-        $stmt->bind_param("ssi", $email, $ip, $success);
+        $sql = "INSERT INTO login_attempts (email, ip_address, attempt_time, success) 
+                VALUES (?, ?, NOW(), ?)";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ssi", $email, $ip, $success_flag);
         $stmt->execute();
     }
     
     /**
-     * Clear login attempts after successful login
+     * Clear failed login attempts
      */
     private function clearLoginAttempts($email) {
-        $stmt = $this->conn->prepare("DELETE FROM login_attempts WHERE email = ?");
-        $stmt->bind_param("s", $email);
+        $email = $this->conn->real_escape_string($email);
+        $ip = $_SERVER['REMOTE_ADDR'];
+        
+        $sql = "DELETE FROM login_attempts 
+                WHERE (email = ? OR ip_address = ?) 
+                AND success = 0";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ss", $email, $ip);
         $stmt->execute();
     }
     
     /**
-     * Update last login timestamp
+     * Update last login time
      */
     private function updateLastLogin($user_id) {
-        $ip = $this->getClientIP();
-        $stmt = $this->conn->prepare("
-            UPDATE admins 
-            SET last_login = NOW(), last_ip = ? 
-            WHERE id = ?
-        ");
+        $ip = $_SERVER['REMOTE_ADDR'];
         
+        $sql = "UPDATE {$this->table} 
+                SET last_login = NOW(), last_ip = ? 
+                WHERE id = ?";
+        
+        $stmt = $this->conn->prepare($sql);
         $stmt->bind_param("si", $ip, $user_id);
         $stmt->execute();
     }
     
     /**
-     * Log admin activity
+     * Log user activity
      */
-    public function logActivity($admin_id, $action, $table = null, $record_id = null, $details = null) {
-        $ip = $this->getClientIP();
-        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
-        
-        $stmt = $this->conn->prepare("
-            INSERT INTO activity_logs 
-            (admin_id, action, table_affected, record_id, details, ip_address, user_agent) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ");
-        
-        $stmt->bind_param("issssss", $admin_id, $action, $table, $record_id, $details, $ip, $user_agent);
-        $stmt->execute();
-    }
+   public function logActivity($user_id, $action, $table_affected = null, $record_id = null, $details = null) {
+    $ip = $_SERVER['REMOTE_ADDR'];
+    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
     
-    /**
-     * Get client IP address
-     */
-    private function getClientIP() {
-        if (!empty($_SERVER['HTTP_CLIENT_IP'])) {
-            return $_SERVER['HTTP_CLIENT_IP'];
-        } elseif (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            return $_SERVER['HTTP_X_FORWARDED_FOR'];
-        } else {
-            return $_SERVER['REMOTE_ADDR'] ?? 'Unknown';
-        }
-    }
+    $sql = "INSERT INTO activity_logs 
+            (admin_id, action, table_affected, record_id, details, ip_address, user_agent, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
     
-    /**
-     * Sanitize email
-     */
-    private function sanitizeEmail($email) {
-        return filter_var(trim($email), FILTER_SANITIZE_EMAIL);
-    }
+    $stmt = $this->conn->prepare($sql);
+    $stmt->bind_param("ississs", $user_id, $action, $table_affected, $record_id, $details, $ip, $user_agent);
+    $stmt->execute();
+}
     
     /**
      * Generate CSRF Token
      */
     public static function generateCSRFToken() {
-        if (!isset($_SESSION[CSRF_TOKEN_NAME])) {
-            $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
+        if (!isset($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
         }
-        return $_SESSION[CSRF_TOKEN_NAME];
+        return $_SESSION['csrf_token'];
     }
     
     /**
      * Verify CSRF Token
      */
     public static function verifyCSRFToken($token) {
-        if (!isset($_SESSION[CSRF_TOKEN_NAME])) {
+        if (!isset($_SESSION['csrf_token'])) {
             return false;
         }
-        return hash_equals($_SESSION[CSRF_TOKEN_NAME], $token);
+        return hash_equals($_SESSION['csrf_token'], $token);
     }
     
     /**
      * Check user role/permission
      */
-    public function hasRole($required_role) {
+    public function hasRole($role) {
         if (!$this->isLoggedIn()) {
             return false;
         }
         
-        $roles = ['super_admin' => 3, 'admin' => 2, 'editor' => 1];
-        $user_role_level = $roles[$_SESSION['admin_role']] ?? 0;
-        $required_level = $roles[$required_role] ?? 0;
+        $userRole = $_SESSION['user_role'] ?? '';
         
-        return $user_role_level >= $required_level;
+        // Super admin has all permissions
+        if ($userRole === 'super_admin') {
+            return true;
+        }
+        
+        // Check specific role
+        if (is_array($role)) {
+            return in_array($userRole, $role);
+        }
+        
+        return $userRole === $role;
     }
     
     /**
-     * Hash password (for registration/password reset)
+     * Require login - redirect if not logged in
      */
-    public static function hashPassword($password) {
-        return password_hash($password, PASSWORD_BCRYPT, ['cost' => 12]);
+    public function requireLogin() {
+        if (!$this->isLoggedIn()) {
+            header('Location: login.php');
+            exit();
+        }
+    }
+    
+    /**
+     * Require specific role
+     */
+    public function requireRole($role) {
+        $this->requireLogin();
+        
+        if (!$this->hasRole($role)) {
+            header('Location: dashboard.php?error=insufficient_permissions');
+            exit();
+        }
     }
 }
 ?>
