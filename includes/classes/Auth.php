@@ -57,8 +57,8 @@ class Auth {
         // Sanitize email
         $email = $this->conn->real_escape_string(trim($email));
         
-        // Get user from database
-        $sql = "SELECT id, username, name, email, password, role, status, avatar 
+        // Get user from database - REMOVED username column
+        $sql = "SELECT id, name, email, password, role, status, avatar 
                 FROM {$this->table} 
                 WHERE email = ? 
                 LIMIT 1";
@@ -97,11 +97,11 @@ class Auth {
         }
         
         // Login successful - Set session variables
-$_SESSION['admin_id'] = $user['id'];
-$_SESSION['admin_email'] = $user['email'];
-$_SESSION['admin_name'] = $user['name'];
-$_SESSION['admin_role'] = $user['role'];
-$_SESSION['admin_avatar'] = $user['avatar'];
+        $_SESSION['admin_id'] = $user['id'];
+        $_SESSION['admin_email'] = $user['email'];
+        $_SESSION['admin_name'] = $user['name'];
+        $_SESSION['admin_role'] = $user['role'];
+        $_SESSION['admin_avatar'] = $user['avatar'];
         $_SESSION['logged_in'] = true;
         $_SESSION['last_activity'] = time();
         
@@ -125,8 +125,8 @@ $_SESSION['admin_avatar'] = $user['avatar'];
      * Logout user
      */
     public function logout() {
-        if (isset($_SESSION['user_id'])) {
-            $this->logActivity($_SESSION['user_id'], 'logout');
+        if (isset($_SESSION['admin_id'])) {
+            $this->logActivity($_SESSION['admin_id'], 'logout');
         }
         
         // Unset all session variables
@@ -174,10 +174,10 @@ $_SESSION['admin_avatar'] = $user['avatar'];
         
         return [
             'id' => $_SESSION['admin_id'] ?? null,
-        'email' => $_SESSION['admin_email'] ?? null,
-        'name' => $_SESSION['admin_name'] ?? null,
-        'role' => $_SESSION['admin_role'] ?? null,
-        'avatar' => $_SESSION['admin_avatar'] ?? null
+            'email' => $_SESSION['admin_email'] ?? null,
+            'name' => $_SESSION['admin_name'] ?? null,
+            'role' => $_SESSION['admin_role'] ?? null,
+            'avatar' => $_SESSION['admin_avatar'] ?? null
         ];
     }
     
@@ -254,18 +254,18 @@ $_SESSION['admin_avatar'] = $user['avatar'];
     /**
      * Log user activity
      */
-   public function logActivity($user_id, $action, $table_affected = null, $record_id = null, $details = null) {
-    $ip = $_SERVER['REMOTE_ADDR'];
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
-    
-    $sql = "INSERT INTO activity_logs 
-            (admin_id, action, table_affected, record_id, details, ip_address, user_agent, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
-    
-    $stmt = $this->conn->prepare($sql);
-    $stmt->bind_param("ississs", $user_id, $action, $table_affected, $record_id, $details, $ip, $user_agent);
-    $stmt->execute();
-}
+    public function logActivity($user_id, $action, $table_affected = null, $record_id = null, $details = null) {
+        $ip = $_SERVER['REMOTE_ADDR'];
+        $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
+        
+        $sql = "INSERT INTO activity_logs 
+                (admin_id, action, table_affected, record_id, details, ip_address, user_agent, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())";
+        
+        $stmt = $this->conn->prepare($sql);
+        $stmt->bind_param("ississs", $user_id, $action, $table_affected, $record_id, $details, $ip, $user_agent);
+        $stmt->execute();
+    }
     
     /**
      * Generate CSRF Token
@@ -290,25 +290,25 @@ $_SESSION['admin_avatar'] = $user['avatar'];
     /**
      * Check user role/permission
      */
-   public function hasRole($role) {
-    if (!$this->isLoggedIn()) {
-        return false;
+    public function hasRole($role) {
+        if (!$this->isLoggedIn()) {
+            return false;
+        }
+        
+        $userRole = $_SESSION['admin_role'] ?? '';
+        
+        // Super admin has all permissions
+        if ($userRole === 'super_admin') {
+            return true;
+        }
+        
+        // Check specific role
+        if (is_array($role)) {
+            return in_array($userRole, $role);
+        }
+        
+        return $userRole === $role;
     }
-    
-    $userRole = $_SESSION['admin_role'] ?? '';
-    
-    // Super admin has all permissions
-    if ($userRole === 'super_admin') {
-        return true;
-    }
-    
-    // Check specific role
-    if (is_array($role)) {
-        return in_array($userRole, $role);
-    }
-    
-    return $userRole === $role;
-}
     
     /**
      * Require login - redirect if not logged in

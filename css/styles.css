@@ -71,28 +71,59 @@ a {
     z-index: 1;
 }
 
-.logo-container {
-    text-align: center;
-    margin-bottom: 25px;
+/* LOGIN PAGE LOGO STYLES */
+.login-card .logo-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 30px;
+    flex-direction: row;
+    justify-content: center;
 }
 
-.logo-icon svg {
-    width: 50px;
-    height: 50px;
-    fill: #4f46e5;
-    margin-bottom: 10px;
+.login-card .logo-icon {
+    width: 80px;  /* Increased from 60px - CHANGE THIS VALUE */
+    height: 80px; /* Increased from 60px - CHANGE THIS VALUE */
+    flex-shrink: 0;
 }
 
-.logo-container h1 {
-    font-size: 24px;
+.login-card .logo-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.login-card .logo-text {
+    text-align: left;
+}
+
+.login-card .logo-container h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #1e293b;
+    line-height: 1.2;
     font-weight: 700;
-    margin-bottom: 5px;
-    color: #0f172a;
 }
 
-.logo-container .subtitle {
+.login-card .logo-container .subtitle {
+    margin: 4px 0 0 0;
     font-size: 14px;
-    color: #6b7280;
+    color: #64748b;
+    font-weight: 400;
+}
+
+/* Fallback for missing logo image */
+.logo-fallback {
+    width: 80px;  /* Matches .logo-icon size - CHANGE THIS IF YOU CHANGE LOGO SIZE */
+    height: 80px; /* Matches .logo-icon size - CHANGE THIS IF YOU CHANGE LOGO SIZE */
+    background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: bold;
+    font-size: 28px;  /* Increased from 20px to match larger icon */
 }
 
 .security-badge {
@@ -250,11 +281,10 @@ a {
 
 @keyframes spin {
     0% {
-        transform: translateY(-50%) rotate(0deg);
+        transform: rotate(0deg);
     }
-
     100% {
-        transform: translateY(-50%) rotate(360deg);
+        transform: rotate(360deg);
     }
 }
 
@@ -297,32 +327,54 @@ a {
 }
 
 .sidebar-header {
-    padding: 20px;
+    padding: 20px 20px 15px 20px;
     border-bottom: 1px solid #374151;
 }
 
 .sidebar-logo {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 12px;
 }
 
-.sidebar-logo svg {
-    width: 36px;
-    height: 36px;
-    fill: #4f46e5;
+/* SIDEBAR Logo Container - for actual logo image */
+.sidebar-logo .logo-container {
+    width: 50px;
+    height: 50px;
     flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.sidebar-logo .logo-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.sidebar-logo-text {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 .sidebar-logo-text h2 {
     font-size: 18px;
     font-weight: 700;
-    margin-bottom: 2px;
+    margin: 0;
+    line-height: 1.2;
+    color: #ffffff;
 }
 
 .sidebar-logo-text p {
-    font-size: 12px;
+    font-size: 11px;
     color: #9ca3af;
+    margin: 0;
+    line-height: 1.2;
 }
 
 .sidebar-menu {
@@ -379,7 +431,7 @@ a {
 .main-content {
     flex: 1;
     padding: 30px;
-    background-color: #f8f9fa;
+    background-color: #f1f5f9;
     overflow-y: auto;
 }
 
@@ -458,11 +510,16 @@ a {
     align-items: center;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     transition: transform 0.2s, box-shadow 0.2s;
+    gap: 20px;
 }
 
 .stat-card:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.stat-info {
+    flex: 1;
 }
 
 .stat-header h3 {
@@ -485,6 +542,7 @@ a {
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 }
 
 .stat-icon svg {
@@ -497,7 +555,7 @@ a {
 }
 
 .stat-icon.blue svg {
-    fill: #3b82f6;
+    fill: #2563eb;
 }
 
 .stat-icon.green {
@@ -505,7 +563,7 @@ a {
 }
 
 .stat-icon.green svg {
-    fill: #10b981;
+    fill: #059669;
 }
 
 .stat-icon.purple {
@@ -517,11 +575,11 @@ a {
 }
 
 .stat-icon.orange {
-    background-color: #fc900259;
+    background-color: #fed7aa;
 }
 
 .stat-icon.orange svg {
-    fill: #fc9002ff;
+    fill: #ea580c;
 }
 
 /* =============================
@@ -549,7 +607,57 @@ a {
 }
 
 /* =============================
-   RESPONSIVE DESIGN
+   BUTTON STYLES
+============================= */
+.btn-delete {
+    background-color: #dc2626 !important;
+    color: white !important;
+}
+
+.btn-delete:hover {
+    background-color: #b91c1c !important;
+}
+
+.btn-group {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* =============================
+   RESPONSIVE DESIGN - LOGIN PAGE
+============================= */
+@media (max-width: 480px) {
+    .login-container {
+        padding: 15px;
+    }
+    
+    .login-card {
+        padding: 30px 20px;
+    }
+
+    .login-card .logo-container {
+        flex-direction: column;
+        text-align: center;
+        gap: 12px;
+    }
+    
+    .login-card .logo-text {
+        text-align: center;
+    }
+    
+    .login-card .logo-container h1 {
+        font-size: 24px;
+    }
+    
+    .login-card .logo-icon {
+        width: 70px;  /* Slightly smaller on mobile - ADJUST THIS FOR MOBILE SIZE */
+        height: 70px; /* Slightly smaller on mobile - ADJUST THIS FOR MOBILE SIZE */
+    }
+}
+
+/* =============================
+   RESPONSIVE DESIGN - DASHBOARD
 ============================= */
 @media (max-width: 1024px) {
     .sidebar {
@@ -597,21 +705,9 @@ a {
     .stats-grid {
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
     }
-
-    .login-card {
-        padding: 30px 20px;
-    }
 }
 
 @media (max-width: 480px) {
-    .login-container {
-        padding: 15px;
-    }
-
-    .logo-container h1 {
-        font-size: 20px;
-    }
-
     .stats-grid {
         grid-template-columns: 1fr;
     }
@@ -675,22 +771,4 @@ a {
 
 ::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
-}
-
-.btn-delete {
-    background-color: #dc2626 !important;
-    /* red */
-    color: white !important;
-}
-
-.btn-delete:hover {
-    background-color: #b91c1c !important;
-    /* darker red */
-}
-
-/* Button group spacing */
-.btn-group {
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
 }

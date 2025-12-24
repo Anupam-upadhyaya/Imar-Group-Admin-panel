@@ -231,6 +231,80 @@ $counts = [
             align-items: center;
             justify-content: center;
         }
+        .search-box {
+    margin-bottom: 25px;
+    max-width: 600px;
+}
+
+.search-box form {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.search-input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    color: #374151;
+    transition: all 0.3s ease;
+    outline: none;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.search-input:focus {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+}
+
+.search-input::placeholder {
+    color: #9ca3af;
+}
+
+.search-box .action-btn {
+    padding: 12px 24px;
+    background: #4f46e5;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.search-box .action-btn:hover {
+    background: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+}
+
+.search-box .action-btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive styles */
+@media (max-width: 640px) {
+    .search-box form {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .search-input {
+        width: 100%;
+    }
+    
+    .search-box .action-btn {
+        width: 100%;
+    }
+}
+
         
         .add-new-btn:hover {
             transform: scale(1.1);
@@ -323,7 +397,7 @@ $counts = [
             <div class="search-box">
                <form method="GET" action="" style="display: flex; gap: 10px;">
                     <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
-                    <input type="text" name="search" class="search-input" placeholder="Search gallery..." value="<?php echo htmlspecialchars($search); ?>">
+                    <input type="text" name="search" class="search-input" placeholder="🔍 Search gallery..." value="<?php echo htmlspecialchars($search); ?>">
                     <button type="submit" class="action-btn view">Search</button>
                 </form>
             </div>
