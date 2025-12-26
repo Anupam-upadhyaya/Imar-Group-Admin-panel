@@ -9,7 +9,7 @@ define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
-
+require_once __DIR__ . '/../includes/avatar-helper.php';
 $auth = new Auth($conn);
 
 if (!$auth->isLoggedIn()) {
@@ -17,9 +17,18 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
+// Get current user info with avatar
+$admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
+
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 // Get filter from URL
 $filter = $_GET['filter'] ?? 'all';
@@ -256,7 +265,15 @@ $counts = [
             <h1>Customer Inquiries</h1>
             <div class="header-actions">
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
+                                       <div class="user-avatar">
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                 alt="<?php echo htmlspecialchars($admin_name); ?>"
+                                 onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+                        <?php else: ?>
+                            <?php echo $admin_initials; ?>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
                         <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>

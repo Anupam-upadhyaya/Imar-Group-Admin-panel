@@ -9,7 +9,7 @@ define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
-
+require_once __DIR__ . '/includes/avatar-helper.php';
 $auth = new Auth($conn);
 
 if (!$auth->isLoggedIn()) {
@@ -17,63 +17,64 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_initials = strtoupper(substr($admin_name, 0, 1));
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
 
-// Get user ID
-$user_id = (int)($_GET['id'] ?? 0);
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
+$admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-if (!$user_id) {
-    header('Location: users.php');
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
+
+// Only super_admin can edit users
+if ($admin_role !== 'super_admin') {
+    header('Location: dashboard.php');
     exit();
 }
 
-// Fetch user data
+$user_id = (int)($_GET['id'] ?? 0);
+$error_message = '';
+$success_message = '';
+
+// Get user data
 $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
+$user = $stmt->get_result()->fetch_assoc();
 
 if (!$user) {
     header('Location: users.php');
     exit();
 }
 
-// Only super_admin can edit users, or users can edit themselves
-if ($admin_role !== 'super_admin' && $admin_id != $user_id) {
-    header('Location: dashboard.php');
-    exit();
-}
-
-$error_message = '';
-$success_message = '';
-
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
-    $new_password = $_POST['new_password'] ?? '';
+    $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
     $role = trim($_POST['role'] ?? 'editor');
     $dob = trim($_POST['dob'] ?? '');
     $status = trim($_POST['status'] ?? 'active');
+    $remove_avatar = isset($_POST['remove_avatar']);
     
     // Validation
     if (empty($name)) {
         $error_message = "Name is required.";
     } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_message = "Valid email is required.";
-    } elseif (!empty($new_password) && strlen($new_password) < 6) {
+    } elseif (!empty($password) && strlen($password) < 6) {
         $error_message = "Password must be at least 6 characters long.";
-    } elseif (!empty($new_password) && $new_password !== $confirm_password) {
+    } elseif (!empty($password) && $password !== $confirm_password) {
         $error_message = "Passwords do not match.";
     } elseif (!in_array($role, ['super_admin', 'admin', 'editor'])) {
         $error_message = "Invalid role selected.";
     } else {
-        // Check if email exists for another user
+        // Check if email already exists (excluding current user)
         $stmt = $conn->prepare("SELECT id FROM admin_users WHERE email = ? AND id != ?");
         $stmt->bind_param("si", $email, $user_id);
         $stmt->execute();
@@ -81,42 +82,93 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->get_result()->num_rows > 0) {
             $error_message = "Email already exists.";
         } else {
-            // Update user
-            if (!empty($new_password)) {
-                // Update with new password
-                $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-                $stmt = $conn->prepare("UPDATE admin_users SET name = ?, email = ?, password = ?, role = ?, dob = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("ssssssi", $name, $email, $hashed_password, $role, $dob, $status, $user_id);
-            } else {
-                // Update without changing password
-                $stmt = $conn->prepare("UPDATE admin_users SET name = ?, email = ?, role = ?, dob = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("sssssi", $name, $email, $role, $dob, $status, $user_id);
+            $avatar_filename = $user['avatar'];
+            
+            // Handle avatar removal
+            if ($remove_avatar && $avatar_filename) {
+                $avatar_path = __DIR__ . '/../uploads/avatars/' . $avatar_filename;
+                if (file_exists($avatar_path)) {
+                    unlink($avatar_path);
+                }
+                $avatar_filename = null;
             }
             
-            if ($stmt->execute()) {
-                $auth->logActivity($admin_id, 'updated_user', 'admin_users', $user_id);
+            // Handle new avatar upload
+            if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = __DIR__ . '/../uploads/avatars/';
                 
-                $success_message = "User updated successfully!";
-                
-                // Refresh user data
-                $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
-                $stmt->bind_param("i", $user_id);
-                $stmt->execute();
-                $result = $stmt->get_result();
-                $user = $result->fetch_assoc();
-                
-                // If user updated themselves, update session
-                if ($user_id == $admin_id) {
-                    $_SESSION['admin_name'] = $user['name'];
-                    $_SESSION['admin_role'] = $user['role'];
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
                 }
                 
-                echo "<script>setTimeout(function() { window.location.href = 'users.php'; }, 2000);</script>";
-            } else {
-                $error_message = "Database error: " . $stmt->error;
+                $file_tmp = $_FILES['avatar']['tmp_name'];
+                $file_name = $_FILES['avatar']['name'];
+                $file_size = $_FILES['avatar']['size'];
+                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                
+                $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                
+                if (!in_array($file_ext, $allowed_extensions)) {
+                    $error_message = "Invalid file type. Only JPG, JPEG, PNG, GIF, and WEBP are allowed.";
+                } elseif ($file_size > 5242880) {
+                    $error_message = "File size must be less than 5MB.";
+                } else {
+                    $image_info = getimagesize($file_tmp);
+                    if ($image_info === false) {
+                        $error_message = "File is not a valid image.";
+                    } else {
+                        // Delete old avatar if exists
+                        if ($avatar_filename) {
+                            $old_avatar_path = $upload_dir . $avatar_filename;
+                            if (file_exists($old_avatar_path)) {
+                                unlink($old_avatar_path);
+                            }
+                        }
+                        
+                        $avatar_filename = 'avatar_' . uniqid() . '_' . time() . '.' . $file_ext;
+                        $upload_path = $upload_dir . $avatar_filename;
+                        
+                        if (!move_uploaded_file($file_tmp, $upload_path)) {
+                            $error_message = "Failed to upload avatar image.";
+                            $avatar_filename = $user['avatar'];
+                        }
+                    }
+                }
+            }
+            
+            // Update user
+            if (empty($error_message)) {
+                if (!empty($password)) {
+                    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+                    $stmt = $conn->prepare("UPDATE admin_users SET name = ?, email = ?, password = ?, role = ?, dob = ?, status = ?, avatar = ? WHERE id = ?");
+                    $stmt->bind_param("sssssssi", $name, $email, $hashed_password, $role, $dob, $status, $avatar_filename, $user_id);
+                } else {
+                    $stmt = $conn->prepare("UPDATE admin_users SET name = ?, email = ?, role = ?, dob = ?, status = ?, avatar = ? WHERE id = ?");
+                    $stmt->bind_param("ssssssi", $name, $email, $role, $dob, $status, $avatar_filename, $user_id);
+                }
+                
+                if ($stmt->execute()) {
+                    $auth->logActivity($admin_id, 'updated_user', 'admin_users', $user_id);
+                    $success_message = "User updated successfully!";
+                    
+                    // Refresh user data
+                    $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
+                    $stmt->bind_param("i", $user_id);
+                    $stmt->execute();
+                    $user = $stmt->get_result()->fetch_assoc();
+                } else {
+                    $error_message = "Database error: " . $stmt->error;
+                }
             }
         }
     }
+}
+
+function getAvatarUrl($avatar) {
+    if ($avatar && file_exists(__DIR__ . '/../uploads/avatars/' . $avatar)) {
+        return '../uploads/avatars/' . $avatar;
+    }
+    return null;
 }
 ?>
 <!DOCTYPE html>
@@ -136,40 +188,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             padding: 40px;
             border-radius: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-        }
-        
-        .user-header {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-            padding: 20px;
-            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-            border-radius: 12px;
-            margin-bottom: 30px;
-            color: white;
-        }
-        
-        .user-avatar-large {
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.2);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 32px;
-            font-weight: 600;
-        }
-        
-        .user-header-info h2 {
-            margin: 0 0 5px 0;
-            font-size: 24px;
-        }
-        
-        .user-header-info p {
-            margin: 0;
-            opacity: 0.9;
-            font-size: 14px;
         }
         
         .form-group {
@@ -218,6 +236,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-top: 5px;
         }
         
+        .avatar-upload-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .avatar-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            font-weight: 600;
+            overflow: hidden;
+            border: 4px solid #e5e7eb;
+        }
+        
+        .avatar-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .avatar-upload-controls {
+            flex: 1;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        .file-input-label:hover {
+            background: #4338ca;
+        }
+        
+        .btn-remove-avatar {
+            padding: 12px 24px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .btn-remove-avatar:hover {
+            background: #dc2626;
+        }
+        
+        .file-name-display {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+        
         .password-toggle {
             position: relative;
         }
@@ -232,19 +332,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #6b7280;
             cursor: pointer;
             font-size: 16px;
-        }
-        
-        .password-section {
-            background: #f9fafb;
-            padding: 20px;
-            border-radius: 8px;
-            margin: 25px 0;
-        }
-        
-        .password-section h3 {
-            margin: 0 0 15px 0;
-            font-size: 16px;
-            color: #0f172a;
         }
         
         .btn-group {
@@ -303,15 +390,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             color: #991b1b;
             border: 1px solid #fecaca;
         }
-        
-        .info-box {
-            background: #dbeafe;
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            font-size: 13px;
-            color: #1e40af;
-        }
     </style>
 </head>
 <body>
@@ -323,14 +401,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="dashboard-header">
             <div>
                 <h1>Edit User</h1>
-                <p style="color: #6b7280; margin-top: 5px;">Update user information and permissions</p>
+                <p style="color: #6b7280; margin-top: 5px;">Update user account information</p>
             </div>
             <div class="header-actions">
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
-                    <div>
+                    <div class="user-avatar">
+<?php if ($avatarUrl): ?>
+<img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+          alt="<?php echo htmlspecialchars($admin_name); ?>"
+          onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+          <?php else: ?>
+          <?php echo $admin_initials; ?>
+          <?php endif; ?>
+</div>
+<div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst(str_replace('_', ' ', $admin_role)); ?></div>
+                        <div style="font-size: 12px; color: #6b7280;">Super Admin</div>
                     </div>
                 </div>
             </div>
@@ -338,7 +424,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php if ($success_message): ?>
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo $success_message; ?> Redirecting...
+                <i class="fas fa-check-circle"></i> <?php echo $success_message; ?>
             </div>
         <?php endif; ?>
 
@@ -348,36 +434,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" id="editUserForm">
+        <form method="POST" id="editUserForm" enctype="multipart/form-data">
             <div class="form-container">
-                <!-- User Header -->
-                <div class="user-header">
-                    <div class="user-avatar-large">
-                        <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
+                <!-- Avatar Upload -->
+                <div class="avatar-upload-container">
+                    <div class="avatar-preview" id="avatarPreview">
+                        <?php 
+                        $avatarUrl = getAvatarUrl($user['avatar']);
+                        if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" alt="Avatar">
+                        <?php else: ?>
+                            <span id="avatarInitials"><?php echo strtoupper(substr($user['name'], 0, 1)); ?></span>
+                        <?php endif; ?>
                     </div>
-                    <div class="user-header-info">
-                        <h2><?php echo htmlspecialchars($user['name']); ?></h2>
-                        <p><?php echo htmlspecialchars($user['email']); ?> • Joined <?php echo date('M d, Y', strtotime($user['created_at'])); ?></p>
+                    <div class="avatar-upload-controls">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #0f172a; font-size: 14px;">
+                            Profile Photo
+                        </label>
+                        <div>
+                            <div class="file-input-wrapper">
+                                <input type="file" id="avatar" name="avatar" accept="image/*" onchange="previewAvatar(this)">
+                                <label for="avatar" class="file-input-label">
+                                    <i class="fas fa-cloud-upload-alt"></i> Change Photo
+                                </label>
+                            </div>
+                            <?php if ($user['avatar']): ?>
+                                <button type="button" class="btn-remove-avatar" onclick="confirmRemoveAvatar()">
+                                    <i class="fas fa-trash"></i> Remove Photo
+                                </button>
+                                <input type="hidden" name="remove_avatar" id="remove_avatar" value="">
+                            <?php endif; ?>
+                        </div>
+                        <div class="file-name-display" id="fileName">
+                            <?php echo $user['avatar'] ? 'Current: ' . $user['avatar'] : 'No file chosen'; ?>
+                        </div>
+                        <div class="helper-text">JPG, PNG, GIF or WEBP. Max 5MB.</div>
                     </div>
                 </div>
-
-                <?php if ($user_id == $admin_id): ?>
-                    <div class="info-box">
-                        <i class="fas fa-info-circle"></i> You are editing your own profile. Changes will be reflected immediately.
-                    </div>
-                <?php endif; ?>
 
                 <!-- Full Name -->
                 <div class="form-group">
                     <label for="name">Full Name <span class="required">*</span></label>
-                    <input type="text" id="name" name="name" required value="<?php echo htmlspecialchars($user['name']); ?>">
+                    <input type="text" id="name" name="name" required placeholder="e.g., John Doe" 
+                           value="<?php echo htmlspecialchars($user['name']); ?>" oninput="updateAvatarInitials()">
                 </div>
 
                 <!-- Email & Date of Birth -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="email">Email Address <span class="required">*</span></label>
-                        <input type="email" id="email" name="email" required value="<?php echo htmlspecialchars($user['email']); ?>">
+                        <input type="email" id="email" name="email" required placeholder="email@example.com" 
+                               value="<?php echo htmlspecialchars($user['email']); ?>">
                     </div>
 
                     <div class="form-group">
@@ -386,74 +493,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <!-- Change Password Section -->
-                <div class="password-section">
-                    <h3><i class="fas fa-lock"></i> Change Password</h3>
-                    <div class="helper-text" style="margin-bottom: 15px;">Leave blank to keep current password</div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="new_password">New Password</label>
-                            <div class="password-toggle">
-                                <input type="password" id="new_password" name="new_password" placeholder="Minimum 6 characters">
-                                <button type="button" class="toggle-password-btn" onclick="togglePassword('new_password')">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
+                <!-- Password (Optional) -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="password">New Password</label>
+                        <div class="password-toggle">
+                            <input type="password" id="password" name="password" placeholder="Leave blank to keep current">
+                            <button type="button" class="toggle-password-btn" onclick="togglePassword('password')">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
+                        <div class="helper-text">Minimum 6 characters. Leave blank to keep current password.</div>
+                    </div>
 
-                        <div class="form-group">
-                            <label for="confirm_password">Confirm New Password</label>
-                            <div class="password-toggle">
-                                <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter password">
-                                <button type="button" class="toggle-password-btn" onclick="togglePassword('confirm_password')">
-                                    <i class="fas fa-eye"></i>
-                                </button>
-                            </div>
-                            <div class="helper-text" id="matchText"></div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirm New Password</label>
+                        <div class="password-toggle">
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter new password">
+                            <button type="button" class="toggle-password-btn" onclick="togglePassword('confirm_password')">
+                                <i class="fas fa-eye"></i>
+                            </button>
                         </div>
+                        <div class="helper-text" id="matchText"></div>
                     </div>
                 </div>
 
-                <!-- Role & Status (only super_admin can change) -->
-                <?php if ($admin_role === 'super_admin'): ?>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="role">User Role <span class="required">*</span></label>
-                            <select id="role" name="role" required <?php echo $user_id == $admin_id ? 'disabled' : ''; ?>>
-                                <option value="editor" <?php echo $user['role'] === 'editor' ? 'selected' : ''; ?>>Editor</option>
-                                <option value="admin" <?php echo $user['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                                <option value="super_admin" <?php echo $user['role'] === 'super_admin' ? 'selected' : ''; ?>>Super Admin</option>
-                            </select>
-                            <?php if ($user_id == $admin_id): ?>
-                                <div class="helper-text">You cannot change your own role</div>
-                                <input type="hidden" name="role" value="<?php echo $user['role']; ?>">
-                            <?php endif; ?>
-                        </div>
-
-                        <div class="form-group">
-                            <label for="status">Account Status</label>
-                            <select id="status" name="status" <?php echo $user_id == $admin_id ? 'disabled' : ''; ?>>
-                                <option value="active" <?php echo $user['status'] === 'active' ? 'selected' : ''; ?>>Active</option>
-                                <option value="inactive" <?php echo $user['status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
-                            </select>
-                            <?php if ($user_id == $admin_id): ?>
-                                <div class="helper-text">You cannot deactivate yourself</div>
-                                <input type="hidden" name="status" value="<?php echo $user['status']; ?>">
-                            <?php endif; ?>
-                        </div>
+                <!-- Role & Status -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="role">User Role <span class="required">*</span></label>
+                        <select id="role" name="role" required>
+                            <option value="editor" <?php echo $user['role'] === 'editor' ? 'selected' : ''; ?>>Editor</option>
+                            <option value="admin" <?php echo $user['role'] === 'admin' ? 'selected' : ''; ?>>Admin</option>
+                            <option value="super_admin" <?php echo $user['role'] === 'super_admin' ? 'selected' : ''; ?>>Super Admin</option>
+                        </select>
                     </div>
-                <?php else: ?>
-                    <input type="hidden" name="role" value="<?php echo $user['role']; ?>">
-                    <input type="hidden" name="status" value="<?php echo $user['status']; ?>">
-                <?php endif; ?>
 
-                <!-- Account Info -->
-                <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px; font-size: 13px; color: #6b7280;">
-                    <strong style="color: #0f172a;">Account Information:</strong><br>
-                    Created: <?php echo date('M d, Y h:i A', strtotime($user['created_at'])); ?><br>
-                    Last Updated: <?php echo date('M d, Y h:i A', strtotime($user['updated_at'])); ?><br>
-                    Last Login: <?php echo $user['last_login'] ? date('M d, Y h:i A', strtotime($user['last_login'])) : 'Never'; ?>
+                    <div class="form-group">
+                        <label for="status">Account Status</label>
+                        <select id="status" name="status">
+                            <option value="active" <?php echo $user['status'] === 'active' ? 'selected' : ''; ?>>Active</option>
+                            <option value="inactive" <?php echo $user['status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                        </select>
+                    </div>
                 </div>
 
                 <!-- Submit Buttons -->
@@ -471,25 +553,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
-// Password match checker
-document.getElementById('confirm_password').addEventListener('input', function() {
-    const password = document.getElementById('new_password').value;
-    const confirm = this.value;
-    const matchText = document.getElementById('matchText');
+function previewAvatar(input) {
+    const preview = document.getElementById('avatarPreview');
+    const fileName = document.getElementById('fileName');
     
-    if (confirm.length === 0) {
-        matchText.textContent = '';
-        matchText.style.color = '';
-    } else if (password === confirm) {
-        matchText.textContent = '✓ Passwords match';
-        matchText.style.color = '#10b981';
-    } else {
-        matchText.textContent = '✗ Passwords do not match';
-        matchText.style.color = '#ef4444';
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        fileName.textContent = file.name;
+        
+        if (file.size > 5242880) {
+            alert('File size must be less than 5MB');
+            input.value = '';
+            return;
+        }
+        
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file');
+            input.value = '';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" alt="Avatar Preview">';
+        };
+        reader.readAsDataURL(file);
     }
-});
+}
 
-// Toggle password visibility
+function confirmRemoveAvatar() {
+    if (confirm('Are you sure you want to remove the profile photo?')) {
+        document.getElementById('remove_avatar').value = '1';
+        document.getElementById('avatarPreview').innerHTML = '<span id="avatarInitials"><?php echo strtoupper(substr($user['name'], 0, 1)); ?></span>';
+        document.getElementById('fileName').textContent = 'Avatar will be removed on save';
+    }
+}
+
+function updateAvatarInitials() {
+    const nameInput = document.getElementById('name');
+    const preview = document.getElementById('avatarPreview');
+    const fileInput = document.getElementById('avatar');
+    
+    if ((!fileInput.files || !fileInput.files[0]) && document.getElementById('remove_avatar').value === '1') {
+        const name = nameInput.value.trim();
+        const initials = name ? name.charAt(0).toUpperCase() : '?';
+        preview.innerHTML = '<span id="avatarInitials">' + initials + '</span>';
+    }
+}
+
 function togglePassword(fieldId) {
     const field = document.getElementById(fieldId);
     const icon = field.nextElementSibling.querySelector('i');
@@ -504,6 +616,24 @@ function togglePassword(fieldId) {
         icon.classList.add('fa-eye');
     }
 }
+
+document.getElementById('confirm_password').addEventListener('input', function() {
+    const password = document.getElementById('password').value;
+    const confirm = this.value;
+    const matchText = document.getElementById('matchText');
+    
+    if (password.length === 0 && confirm.length === 0) {
+        matchText.textContent = '';
+    } else if (confirm.length === 0) {
+        matchText.textContent = '';
+    } else if (password === confirm) {
+        matchText.textContent = '✓ Passwords match';
+        matchText.style.color = '#10b981';
+    } else {
+        matchText.textContent = '✗ Passwords do not match';
+        matchText.style.color = '#ef4444';
+    }
+});
 </script>
 
 </body>

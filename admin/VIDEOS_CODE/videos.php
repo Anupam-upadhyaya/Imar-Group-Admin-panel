@@ -1,7 +1,7 @@
 <?php
 /**
  * IMAR Group Admin Panel - Video Management
- * File: admin/videos.php
+ * File: admin/VIDEOS_CODE/videos.php
  */
 
 session_start();
@@ -9,6 +9,7 @@ define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../includes/avatar-helper.php'; // CORRECTED PATH
 
 $auth = new Auth($conn);
 
@@ -17,10 +18,18 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_initials = strtoupper(substr($admin_name, 0, 1));
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
+
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
+$admin_initials = strtoupper(substr($admin_name, 0, 1));
+
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
@@ -130,6 +139,27 @@ $suggested_order = $max_order + 1;
     <link rel="stylesheet" href="../../css/styles.css">
     <link rel="stylesheet" href="../../css/dashboard.css">
     <style>
+        /* Avatar styles for header */
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            overflow: hidden;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
         .video-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
@@ -376,7 +406,16 @@ $suggested_order = $max_order + 1;
             <h1>Video Management</h1>
             <div class="header-actions">
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
+                    <!-- UPDATED AVATAR SECTION -->
+                    <div class="user-avatar">
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                 alt="<?php echo htmlspecialchars($admin_name); ?>"
+                                 onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+                        <?php else: ?>
+                            <?php echo $admin_initials; ?>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
                         <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
@@ -496,37 +535,40 @@ $suggested_order = $max_order + 1;
 
 <script>
 // YouTube URL validation and preview
-document.getElementById('youtube_url').addEventListener('input', function() {
-    const url = this.value;
-    const preview = document.getElementById('youtubePreview');
-    const previewId = document.getElementById('previewId');
-    const previewThumb = document.getElementById('previewThumb');
-    
-    // Extract YouTube ID
-    const patterns = [
-        /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
-        /youtu\.be\/([a-zA-Z0-9_-]+)/,
-        /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/,
-        /youtube\.com\/v\/([a-zA-Z0-9_-]+)/
-    ];
-    
-    let youtubeId = null;
-    for (const pattern of patterns) {
-        const match = url.match(pattern);
-        if (match) {
-            youtubeId = match[1];
-            break;
+const youtubeUrlInput = document.getElementById('youtube_url');
+if (youtubeUrlInput) {
+    youtubeUrlInput.addEventListener('input', function() {
+        const url = this.value;
+        const preview = document.getElementById('youtubePreview');
+        const previewId = document.getElementById('previewId');
+        const previewThumb = document.getElementById('previewThumb');
+        
+        // Extract YouTube ID
+        const patterns = [
+            /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
+            /youtu\.be\/([a-zA-Z0-9_-]+)/,
+            /youtube\.com\/embed\/([a-zA-Z0-9_-]+)/,
+            /youtube\.com\/v\/([a-zA-Z0-9_-]+)/
+        ];
+        
+        let youtubeId = null;
+        for (const pattern of patterns) {
+            const match = url.match(pattern);
+            if (match) {
+                youtubeId = match[1];
+                break;
+            }
         }
-    }
-    
-    if (youtubeId) {
-        preview.classList.add('show');
-        previewId.textContent = youtubeId;
-        previewThumb.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
-    } else {
-        preview.classList.remove('show');
-    }
-});
+        
+        if (youtubeId && preview && previewId && previewThumb) {
+            preview.classList.add('show');
+            previewId.textContent = youtubeId;
+            previewThumb.src = `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`;
+        } else if (preview) {
+            preview.classList.remove('show');
+        }
+    });
+}
 </script>
 
 </body>

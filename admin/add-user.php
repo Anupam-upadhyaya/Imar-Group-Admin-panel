@@ -9,6 +9,7 @@ define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
+require_once __DIR__ . '/includes/avatar-helper.php';
 
 $auth = new Auth($conn);
 
@@ -17,10 +18,18 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_initials = strtoupper(substr($admin_name, 0, 1));
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
+
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
+$admin_initials = strtoupper(substr($admin_name, 0, 1));
+
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 // Only super_admin can add users
 if ($admin_role !== 'super_admin') {
@@ -63,25 +72,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->get_result()->num_rows > 0) {
             $error_message = "Email already exists.";
         } else {
-            // Hash password
-            $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+            // Handle avatar upload
+            $avatar_filename = null;
             
-            // Insert user
-            $stmt = $conn->prepare("INSERT INTO admin_users (name, email, password, role, dob, status) VALUES (?, ?, ?, ?, ?, ?)");
-            $stmt->bind_param("ssssss", $name, $email, $hashed_password, $role, $dob, $status);
+            if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+                $upload_dir = __DIR__ . '/../uploads/avatars/';
+                
+                // Create directory if it doesn't exist
+                if (!file_exists($upload_dir)) {
+                    mkdir($upload_dir, 0755, true);
+                }
+                
+                $file_tmp = $_FILES['avatar']['tmp_name'];
+                $file_name = $_FILES['avatar']['name'];
+                $file_size = $_FILES['avatar']['size'];
+                $file_type = $_FILES['avatar']['type'];
+                
+                // Get file extension
+                $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+                
+                // Allowed extensions
+                $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+                
+                // Validate file
+                if (!in_array($file_ext, $allowed_extensions)) {
+                    $error_message = "Invalid file type. Only JPG, JPEG, PNG, GIF, and WEBP are allowed.";
+                } elseif ($file_size > 5242880) { // 5MB max
+                    $error_message = "File size must be less than 5MB.";
+                } else {
+                    // Verify it's actually an image
+                    $image_info = getimagesize($file_tmp);
+                    if ($image_info === false) {
+                        $error_message = "File is not a valid image.";
+                    } else {
+                        // Generate unique filename
+                        $avatar_filename = 'avatar_' . uniqid() . '_' . time() . '.' . $file_ext;
+                        $upload_path = $upload_dir . $avatar_filename;
+                        
+                        // Move uploaded file
+                        if (!move_uploaded_file($file_tmp, $upload_path)) {
+                            $error_message = "Failed to upload avatar image.";
+                            $avatar_filename = null;
+                        }
+                    }
+                }
+            }
             
-            if ($stmt->execute()) {
-                $new_user_id = $stmt->insert_id;
-                $auth->logActivity($admin_id, 'added_user', 'admin_users', $new_user_id);
+            // If no errors, insert user
+            if (empty($error_message)) {
+                // Hash password
+                $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
-                $success_message = "User created successfully!";
+                // Insert user
+                $stmt = $conn->prepare("INSERT INTO admin_users (name, email, password, role, dob, status, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssssss", $name, $email, $hashed_password, $role, $dob, $status, $avatar_filename);
                 
-                // Send welcome email (optional - you'll need to implement email sending)
-                // sendWelcomeEmail($email, $name, $password);
-                
-                echo "<script>setTimeout(function() { window.location.href = 'users.php'; }, 2000);</script>";
-            } else {
-                $error_message = "Database error: " . $stmt->error;
+                if ($stmt->execute()) {
+                    $new_user_id = $stmt->insert_id;
+                    $auth->logActivity($admin_id, 'added_user', 'admin_users', $new_user_id);
+                    
+                    $success_message = "User created successfully!";
+                    
+                    echo "<script>setTimeout(function() { window.location.href = 'users.php'; }, 2000);</script>";
+                } else {
+                    $error_message = "Database error: " . $stmt->error;
+                    
+                    // Delete uploaded file if database insert failed
+                    if ($avatar_filename && file_exists($upload_dir . $avatar_filename)) {
+                        unlink($upload_dir . $avatar_filename);
+                    }
+                }
             }
         }
     }
@@ -150,6 +210,76 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             font-size: 12px;
             color: #6b7280;
             margin-top: 5px;
+        }
+        
+        /* Avatar Upload Styles */
+        .avatar-upload-container {
+            display: flex;
+            align-items: flex-start;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+        
+        .avatar-preview {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 48px;
+            font-weight: 600;
+            overflow: hidden;
+            border: 4px solid #e5e7eb;
+        }
+        
+        .avatar-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .avatar-upload-controls {
+            flex: 1;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: inline-block;
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            font-size: 14px;
+        }
+        
+        .file-input-label:hover {
+            background: #4338ca;
+        }
+        
+        .file-input-label i {
+            margin-right: 8px;
+        }
+        
+        .file-name-display {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #6b7280;
         }
         
         .password-strength {
@@ -272,8 +402,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
             <div class="header-actions">
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
-                    <div>
+                    <div class="user-avatar">
+<?php if ($avatarUrl): ?>
+<img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+          alt="<?php echo htmlspecialchars($admin_name); ?>"
+          onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+          <?php else: ?>
+          <?php echo $admin_initials; ?>
+          <?php endif; ?>
+</div>
+<div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
                         <div style="font-size: 12px; color: #6b7280;">Super Admin</div>
                     </div>
@@ -293,12 +431,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
 
-        <form method="POST" id="addUserForm">
+        <form method="POST" id="addUserForm" enctype="multipart/form-data">
             <div class="form-container">
+                <!-- Avatar Upload -->
+                <div class="avatar-upload-container">
+                    <div class="avatar-preview" id="avatarPreview">
+                        <span id="avatarInitials">?</span>
+                    </div>
+                    <div class="avatar-upload-controls">
+                        <label style="display: block; font-weight: 600; margin-bottom: 8px; color: #0f172a; font-size: 14px;">
+                            Profile Photo
+                        </label>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="avatar" name="avatar" accept="image/*" onchange="previewAvatar(this)">
+                            <label for="avatar" class="file-input-label">
+                                <i class="fas fa-cloud-upload-alt"></i> Choose Photo
+                            </label>
+                        </div>
+                        <div class="file-name-display" id="fileName">No file chosen</div>
+                        <div class="helper-text">JPG, PNG, GIF or WEBP. Max 5MB.</div>
+                    </div>
+                </div>
+
                 <!-- Full Name -->
                 <div class="form-group">
                     <label for="name">Full Name <span class="required">*</span></label>
-                    <input type="text" id="name" name="name" required placeholder="e.g., John Doe" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>">
+                    <input type="text" id="name" name="name" required placeholder="e.g., John Doe" value="<?php echo htmlspecialchars($_POST['name'] ?? ''); ?>" oninput="updateAvatarInitials()">
                     <div class="helper-text">This name will be displayed in the admin panel</div>
                 </div>
 
@@ -387,6 +545,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+// Avatar preview function
+function previewAvatar(input) {
+    const preview = document.getElementById('avatarPreview');
+    const fileName = document.getElementById('fileName');
+    const initialsSpan = document.getElementById('avatarInitials');
+    
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        fileName.textContent = file.name;
+        
+        // Validate file size (5MB)
+        if (file.size > 5242880) {
+            alert('File size must be less than 5MB');
+            input.value = '';
+            fileName.textContent = 'No file chosen';
+            return;
+        }
+        
+        // Validate file type
+        const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!validTypes.includes(file.type)) {
+            alert('Please select a valid image file (JPG, PNG, GIF, or WEBP)');
+            input.value = '';
+            fileName.textContent = 'No file chosen';
+            return;
+        }
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.innerHTML = '<img src="' + e.target.result + '" alt="Avatar Preview">';
+        };
+        reader.readAsDataURL(file);
+    } else {
+        fileName.textContent = 'No file chosen';
+        updateAvatarInitials();
+    }
+}
+
+// Update avatar initials
+function updateAvatarInitials() {
+    const nameInput = document.getElementById('name');
+    const preview = document.getElementById('avatarPreview');
+    const fileInput = document.getElementById('avatar');
+    
+    // Only show initials if no file is selected
+    if (!fileInput.files || !fileInput.files[0]) {
+        const name = nameInput.value.trim();
+        const initials = name ? name.charAt(0).toUpperCase() : '?';
+        preview.innerHTML = '<span id="avatarInitials">' + initials + '</span>';
+    }
+}
+
 // Password strength checker
 document.getElementById('password').addEventListener('input', function() {
     const password = this.value;

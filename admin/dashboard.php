@@ -13,6 +13,7 @@ define('SECURE_ACCESS', true);
 // Include configuration and classes
 require_once '../config/config.php';
 require_once '../includes/classes/Auth.php';
+require_once 'includes/avatar-helper.php'; // ADD THIS LINE
 
 // Initialize Auth
 $auth = new Auth($conn);
@@ -23,11 +24,18 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_email = $_SESSION['admin_email'] ?? '';
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info with avatar
+$admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
+
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
+
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 // Fetch dashboard statistics
 $stats = [];
@@ -69,7 +77,7 @@ while ($row = $result->fetch_assoc()) {
 // Recent activities
 $recent_activities = [];
 $result = $conn->query("
-    SELECT al.action, al.table_affected, al.created_at, a.name as full_name 
+    SELECT al.action, al.table_affected, al.created_at, a.name as full_name, a.avatar
     FROM activity_logs al 
     LEFT JOIN admin_users a ON al.admin_id = a.id 
     ORDER BY al.created_at DESC 
@@ -90,7 +98,7 @@ if ($hour < 12) {
 }
 
 // Fetch notification counts for sidebar
-$new_inquiries_count = $stats['new_inquiries']; // Already fetched above
+$new_inquiries_count = $stats['new_inquiries'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -100,6 +108,50 @@ $new_inquiries_count = $stats['new_inquiries']; // Already fetched above
     <title>Dashboard - IMAR Group Admin</title>
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/dashboard.css">
+    <style>
+        /* Avatar styles for header */
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 16px;
+            overflow: hidden;
+        }
+        
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Avatar styles for activity feed */
+        .activity-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 14px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .activity-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+    </style>
 </head>
 <body>
 
@@ -172,7 +224,16 @@ $new_inquiries_count = $stats['new_inquiries']; // Already fetched above
             <h1>Dashboard</h1>
             <div class="header-actions">
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
+                    <!-- UPDATED AVATAR SECTION -->
+                    <div class="user-avatar">
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                 alt="<?php echo htmlspecialchars($admin_name); ?>"
+                                 onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+                        <?php else: ?>
+                            <?php echo $admin_initials; ?>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
                         <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
@@ -356,17 +417,25 @@ $new_inquiries_count = $stats['new_inquiries']; // Already fetched above
                         <p>System activities will be logged here</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($recent_activities as $activity): ?>
+                    <?php foreach ($recent_activities as $activity): 
+                        $name = $activity['full_name'] ?? 'System';
+                        $activityAvatarUrl = getAvatarPath($activity['avatar'] ?? null, __DIR__);
+                        $activityInitials = strtoupper(substr($name, 0, 1));
+                    ?>
                         <div class="activity-item">
+                            <!-- UPDATED AVATAR IN ACTIVITY FEED -->
                             <div class="activity-icon">
-                                <?php 
-                                $name = $activity['full_name'] ?? 'System';
-                                echo strtoupper(substr($name, 0, 1)); 
-                                ?>
+                                <?php if ($activityAvatarUrl): ?>
+                                    <img src="<?php echo htmlspecialchars($activityAvatarUrl); ?>" 
+                                         alt="<?php echo htmlspecialchars($name); ?>"
+                                         onerror="this.outerHTML='<span><?php echo $activityInitials; ?></span>';">
+                                <?php else: ?>
+                                    <?php echo $activityInitials; ?>
+                                <?php endif; ?>
                             </div>
                             <div class="activity-content">
                                 <div class="activity-text">
-                                    <strong><?php echo htmlspecialchars($activity['full_name'] ?? 'System'); ?></strong>
+                                    <strong><?php echo htmlspecialchars($name); ?></strong>
                                     <?php echo htmlspecialchars($activity['action']); ?>
                                     <?php if ($activity['table_affected']): ?>
                                         in <em><?php echo htmlspecialchars($activity['table_affected']); ?></em>

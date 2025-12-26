@@ -9,7 +9,7 @@ define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
-
+require_once __DIR__ . '/includes/avatar-helper.php';
 $auth = new Auth($conn);
 
 if (!$auth->isLoggedIn()) {
@@ -17,19 +17,21 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-$admin_name = $_SESSION['admin_name'] ?? 'Admin';
-$admin_initials = strtoupper(substr($admin_name, 0, 1));
-$admin_role = $_SESSION['admin_role'] ?? 'editor';
+// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
+$currentUser = getCurrentUserAvatar($conn, $admin_id);
 
-// Only super_admin can manage users
-if ($admin_role !== 'super_admin') {
-    header('Location: dashboard.php');
-    exit();
-}
+$admin_name = $currentUser['name'] ?? $_SESSION['admin_name'] ?? 'Admin';
+$admin_email = $currentUser['email'] ?? $_SESSION['admin_email'] ?? '';
+$admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
+$admin_avatar = $currentUser['avatar'] ?? null;
+$admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-$success_message = '';
+// Get avatar URL
+$avatarUrl = getAvatarPath($admin_avatar, __DIR__);
+
 $error_message = '';
+$success_message = '';
 
 // Handle delete user
 if (isset($_GET['delete']) && $_GET['delete'] != $admin_id) {
@@ -37,10 +39,24 @@ if (isset($_GET['delete']) && $_GET['delete'] != $admin_id) {
     
     // Don't allow deleting yourself
     if ($delete_id != $admin_id) {
+        // Get user avatar before deleting
+        $stmt = $conn->prepare("SELECT avatar FROM admin_users WHERE id = ?");
+        $stmt->bind_param("i", $delete_id);
+        $stmt->execute();
+        $user_data = $stmt->get_result()->fetch_assoc();
+        
         $stmt = $conn->prepare("DELETE FROM admin_users WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         
         if ($stmt->execute()) {
+            // Delete avatar file if exists
+            if ($user_data['avatar']) {
+                $avatar_path = __DIR__ . '/../uploads/avatars/' . $user_data['avatar'];
+                if (file_exists($avatar_path)) {
+                    unlink($avatar_path);
+                }
+            }
+            
             $auth->logActivity($admin_id, 'deleted_user', 'admin_users', $delete_id);
             $success_message = "User deleted successfully!";
         } else {
@@ -113,6 +129,26 @@ $stats = [
     'admins' => $conn->query("SELECT COUNT(*) as count FROM admin_users WHERE role = 'admin'")->fetch_assoc()['count'],
     'editors' => $conn->query("SELECT COUNT(*) as count FROM admin_users WHERE role = 'editor'")->fetch_assoc()['count']
 ];
+
+// Helper function to get avatar URL - IMPROVED VERSION
+function getAvatarUrl($avatar) {
+    if (!$avatar) {
+        return null;
+    }
+    
+    // Build the file system path
+    $file_path = __DIR__ . '/../uploads/avatars/' . $avatar;
+    
+    // Check if file exists
+    if (file_exists($file_path) && is_file($file_path)) {
+        // Return the web-accessible URL
+        // This assumes your admin folder is one level deep from root
+        return '../uploads/avatars/' . $avatar;
+    }
+    
+    // File doesn't exist
+    return null;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -176,6 +212,15 @@ $stats = [
             justify-content: center;
             font-weight: 600;
             font-size: 16px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        
+        .user-avatar-table img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
         
         .user-info {
@@ -311,75 +356,33 @@ $stats = [
         .search-box {
             flex: 1;
             min-width: 250px;
+            max-width: 1000px;
+            width: 100%;
         }
         
-        .search-box {
-    flex: 1;
-    min-width: 250px;
-    max-width: 1000px; /* Increased max width */
-    width: 100%;
-}
-      .search-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
-    background: white;
-    color: #374151;
-    transition: all 0.3s ease;
-    outline: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    width: 100%; /* Increased min width */
-}
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #374151;
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            width: 100%;
+        }
 
-.search-input:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
+        .search-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
 
-.search-input::placeholder {
-    color: #9ca3af;
-}
+        .search-input::placeholder {
+            color: #9ca3af;
+        }
 
-.search-box .action-btn {
-    padding: 12px 24px;
-    background: #4f46e5;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-.search-box .action-btn:hover {
-    background: #4338ca;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-}
-
-.search-box .action-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
-
-/* Responsive adjustments */
-@media (min-width: 768px) {
-    .search-input {
-        min-width: 400px;
-    }
-}
-
-@media (min-width: 1024px) {
-    .search-input {
-        min-width: 500px;
-    }
-}
-        
         .filter-select {
             padding: 10px 15px;
             border: 2px solid #e5e7eb;
@@ -399,15 +402,34 @@ $stats = [
             color: #6b7280;
             font-size: 13px;
         }
+        
+        /* Debug info - remove after fixing */
+        .debug-info {
+            background: #fef3c7;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-size: 12px;
+            display: none; /* Show this if you need to debug */
+        }
+        
+        @media (min-width: 768px) {
+            .search-input {
+                min-width: 400px;
+            }
+        }
+
+        @media (min-width: 1024px) {
+            .search-input {
+                min-width: 500px;
+            }
+        }
     </style>
 </head>
 <body>
 
 <div class="dashboard">
-    <?php 
-    // Include sidebar - it will automatically detect the correct logo path
-    include __DIR__ . '/includes/sidebar.php'; 
-    ?>
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
     
     <div class="main-content">
         <div class="dashboard-header">
@@ -420,7 +442,15 @@ $stats = [
                     <i class="fas fa-plus"></i> Add New User
                 </a>
                 <div class="user-info">
-                    <div class="user-avatar"><?php echo $admin_initials; ?></div>
+                         <div class="user-avatar">
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                 alt="<?php echo htmlspecialchars($admin_name); ?>"
+                                 onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+                        <?php else: ?>
+                            <?php echo $admin_initials; ?>
+                        <?php endif; ?>
+                    </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
                         <div style="font-size: 12px; color: #6b7280;">Super Admin</div>
@@ -537,18 +567,34 @@ $stats = [
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($users as $user): ?>
+                        <?php foreach ($users as $user): 
+                            $avatarUrl = getAvatarUrl($user['avatar']);
+                            $userInitials = strtoupper(substr($user['name'], 0, 1));
+                        ?>
                             <tr>
                                 <td>
                                     <div class="user-avatar-cell">
                                         <div class="user-avatar-table">
-                                            <?php echo strtoupper(substr($user['name'], 0, 1)); ?>
+                                            <?php if ($avatarUrl): ?>
+                                                <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                                     alt="<?php echo htmlspecialchars($user['name']); ?>"
+                                                     onerror="this.outerHTML='<span><?php echo $userInitials; ?></span>';">
+                                            <?php else: ?>
+                                                <?php echo $userInitials; ?>
+                                            <?php endif; ?>
                                         </div>
                                         <div class="user-info">
                                             <span class="user-name"><?php echo htmlspecialchars($user['name']); ?></span>
                                             <span class="user-email"><?php echo htmlspecialchars($user['email']); ?></span>
                                         </div>
                                     </div>
+                                    <!-- Debug info - uncomment to see what's happening -->
+                                    <!-- <div class="debug-info">
+                                        Avatar in DB: <?php echo $user['avatar'] ?? 'NULL'; ?><br>
+                                        Avatar URL: <?php echo $avatarUrl ?? 'NULL'; ?><br>
+                                        File path: <?php echo __DIR__ . '/../uploads/avatars/' . $user['avatar']; ?><br>
+                                        Exists: <?php echo file_exists(__DIR__ . '/../uploads/avatars/' . $user['avatar']) ? 'YES' : 'NO'; ?>
+                                    </div> -->
                                 </td>
                                 <td>
                                     <span class="role-badge role-<?php echo $user['role']; ?>">
