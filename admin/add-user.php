@@ -1,6 +1,6 @@
 <?php
 /**
- * IMAR Group Admin Panel - Add User
+ * IMAR Group Admin Panel - Add User with RBAC
  * File: admin/add-user.php
  */
 
@@ -10,11 +10,20 @@ define('SECURE_ACCESS', true);
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
 require_once __DIR__ . '/includes/avatar-helper.php';
+require_once __DIR__ . '/../includes/classes/AccessControl.php';
+require_once __DIR__ . '/../includes/classes/Permissions.php';
 
 $auth = new Auth($conn);
+$access = new AccessControl($conn);
 
 if (!$auth->isLoggedIn()) {
     header('Location: login.php');
+    exit();
+}
+
+// ✅ RBAC: Only Super Admin and Admin can access user management
+if (!Permissions::canAccessUserManagement($access->getCurrentRole())) {
+    header('Location: dashboard.php?error=access_denied');
     exit();
 }
 
@@ -31,14 +40,32 @@ $admin_initials = strtoupper(substr($admin_name, 0, 1));
 // Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Only super_admin can add users
-if ($admin_role !== 'super_admin') {
-    header('Location: dashboard.php');
-    exit();
-}
-
 $error_message = '';
 $success_message = '';
+
+// ✅ RBAC: Get allowed roles based on current user's role
+function getAllowedRoles($currentRole) {
+    $allowedRoles = [];
+    
+    if ($currentRole === Permissions::ROLE_SUPER_ADMIN) {
+        // Super Admin can create: Super Admin, Admin, Editor
+        $allowedRoles = [
+            Permissions::ROLE_SUPER_ADMIN => 'Super Admin',
+            Permissions::ROLE_ADMIN => 'Admin',
+            Permissions::ROLE_EDITOR => 'Editor'
+        ];
+    } elseif ($currentRole === Permissions::ROLE_ADMIN) {
+        // Admin can only create: Admin and Editor (NOT Super Admin)
+        $allowedRoles = [
+            Permissions::ROLE_ADMIN => 'Admin',
+            Permissions::ROLE_EDITOR => 'Editor'
+        ];
+    }
+    
+    return $allowedRoles;
+}
+
+$allowedRoles = getAllowedRoles($admin_role);
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -50,8 +77,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dob = trim($_POST['dob'] ?? '');
     $status = trim($_POST['status'] ?? 'active');
     
+    // ✅ RBAC: Validate role assignment
+    if (!array_key_exists($role, $allowedRoles)) {
+        $error_message = "You don't have permission to create users with role: " . ucwords(str_replace('_', ' ', $role));
+    } 
+    // ✅ RBAC: Additional check using Permissions class
+    elseif (!Permissions::canManageUser($admin_role, $role, Permissions::ACTION_CREATE)) {
+        $error_message = "You cannot create users with role: " . ucwords(str_replace('_', ' ', $role));
+    }
     // Validation
-    if (empty($name)) {
+    elseif (empty($name)) {
         $error_message = "Name is required.";
     } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error_message = "Valid email is required.";
@@ -61,7 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error_message = "Password must be at least 6 characters long.";
     } elseif ($password !== $confirm_password) {
         $error_message = "Passwords do not match.";
-    } elseif (!in_array($role, ['super_admin', 'admin', 'editor'])) {
+    } elseif (!in_array($role, array_keys($allowedRoles))) {
         $error_message = "Invalid role selected.";
     } else {
         // Check if email already exists
@@ -129,7 +164,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 if ($stmt->execute()) {
                     $new_user_id = $stmt->insert_id;
-                    $auth->logActivity($admin_id, 'added_user', 'admin_users', $new_user_id);
+                    
+                    // ✅ RBAC: Log the privileged action
+                    $roleLabel = ucwords(str_replace('_', ' ', $role));
+                    $access->logPrivilegedAction(
+                        $admin_id, 
+                        'created_user', 
+                        'admin_users', 
+                        $new_user_id, 
+                        "Created $roleLabel user: $name ($email)"
+                    );
                     
                     $success_message = "User created successfully!";
                     
@@ -146,6 +190,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+
+// Build role descriptions based on permissions
+$roleDescriptions = [
+    Permissions::ROLE_EDITOR => '<strong>Editor Permissions:</strong> Can create and edit content but cannot delete or manage users.',
+    Permissions::ROLE_ADMIN => '<strong>Admin Permissions:</strong> Can manage content and users (except Super Admins). Cannot modify Super Admin accounts.',
+    Permissions::ROLE_SUPER_ADMIN => '<strong>Super Admin Permissions:</strong> Complete system access including all user management, system settings, and content operations.'
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -387,6 +438,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             display: block;
             margin-bottom: 5px;
         }
+        
+        .permission-notice {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            color: #92400e;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 13px;
+        }
+        
+        .permission-notice i {
+            margin-right: 8px;
+        }
     </style>
 </head>
 <body>
@@ -403,17 +468,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="header-actions">
                 <div class="user-info">
                     <div class="user-avatar">
-<?php if ($avatarUrl): ?>
-<img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
-          alt="<?php echo htmlspecialchars($admin_name); ?>"
-          onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
-          <?php else: ?>
-          <?php echo $admin_initials; ?>
-          <?php endif; ?>
-</div>
-<div>
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
+                                 alt="<?php echo htmlspecialchars($admin_name); ?>"
+                                 onerror="this.outerHTML='<span><?php echo $admin_initials; ?></span>';">
+                        <?php else: ?>
+                            <?php echo $admin_initials; ?>
+                        <?php endif; ?>
+                    </div>
+                    <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;">Super Admin</div>
+                        <div style="font-size: 12px; color: #6b7280;"><?php echo str_replace('_', ' ', ucwords($admin_role)); ?></div>
                     </div>
                 </div>
             </div>
@@ -421,13 +486,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <?php if ($success_message): ?>
             <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i> <?php echo $success_message; ?> Redirecting...
+                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?> Redirecting...
             </div>
         <?php endif; ?>
 
         <?php if ($error_message): ?>
             <div class="alert alert-error">
-                <i class="fas fa-exclamation-circle"></i> <?php echo $error_message; ?>
+                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_message); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($admin_role === Permissions::ROLE_ADMIN): ?>
+            <div class="permission-notice">
+                <i class="fas fa-info-circle"></i>
+                <strong>Note:</strong> As an Admin, you can only create Admin and Editor accounts. You cannot create Super Admin accounts.
             </div>
         <?php endif; ?>
 
@@ -508,10 +580,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <div class="form-group">
                         <label for="role">User Role <span class="required">*</span></label>
                         <select id="role" name="role" required>
-                            <option value="editor" <?php echo ($_POST['role'] ?? '') === 'editor' ? 'selected' : ''; ?>>Editor</option>
-                            <option value="admin" <?php echo ($_POST['role'] ?? '') === 'admin' ? 'selected' : ''; ?>>Admin</option>
-                            <option value="super_admin" <?php echo ($_POST['role'] ?? '') === 'super_admin' ? 'selected' : ''; ?>>Super Admin</option>
+                            <?php foreach ($allowedRoles as $roleKey => $roleLabel): ?>
+                                <option value="<?php echo htmlspecialchars($roleKey); ?>" 
+                                        <?php echo ($_POST['role'] ?? '') === $roleKey ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($roleLabel); ?>
+                                </option>
+                            <?php endforeach; ?>
                         </select>
+                        <div class="helper-text">
+                            <?php if ($admin_role === Permissions::ROLE_ADMIN): ?>
+                                You can only create Admin and Editor roles
+                            <?php else: ?>
+                                Select the appropriate role for this user
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -526,8 +608,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 <!-- Role Description -->
                 <div class="role-description" id="roleDescription">
-                    <strong>Editor Permissions:</strong>
-                    Can create and edit content but cannot delete or manage users.
+                    <?php 
+                    $defaultRole = array_key_first($allowedRoles);
+                    echo $roleDescriptions[$defaultRole] ?? '';
+                    ?>
                 </div>
 
                 <!-- Submit Buttons -->
@@ -545,6 +629,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 </div>
 
 <script>
+// Role descriptions from PHP
+const roleDescriptions = <?php echo json_encode($roleDescriptions); ?>;
+
 // Avatar preview function
 function previewAvatar(input) {
     const preview = document.getElementById('avatarPreview');
@@ -662,15 +749,12 @@ function togglePassword(fieldId) {
     }
 }
 
-// Role descriptions
-const roleDescriptions = {
-    'editor': '<strong>Editor Permissions:</strong> Can create and edit content but cannot delete or manage users.',
-    'admin': '<strong>Admin Permissions:</strong> Full access to content management, can delete content, but cannot manage other admin users.',
-    'super_admin': '<strong>Super Admin Permissions:</strong> Complete system access including user management, system settings, and all content operations.'
-};
-
+// Update role description when role changes
 document.getElementById('role').addEventListener('change', function() {
-    document.getElementById('roleDescription').innerHTML = roleDescriptions[this.value];
+    const description = roleDescriptions[this.value];
+    if (description) {
+        document.getElementById('roleDescription').innerHTML = description;
+    }
 });
 </script>
 

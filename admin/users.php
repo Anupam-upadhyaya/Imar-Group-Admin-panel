@@ -1,6 +1,6 @@
 <?php
 /**
- * IMAR Group Admin Panel - Users Management
+ * IMAR Group Admin Panel - Users Management with RBAC
  * File: admin/users.php
  */
 
@@ -10,10 +10,20 @@ define('SECURE_ACCESS', true);
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
 require_once __DIR__ . '/includes/avatar-helper.php';
+require_once __DIR__ . '/../includes/classes/AccessControl.php';
+require_once __DIR__ . '/../includes/classes/Permissions.php';
+
 $auth = new Auth($conn);
+$access = new AccessControl($conn);
 
 if (!$auth->isLoggedIn()) {
     header('Location: login.php');
+    exit();
+}
+
+// ✅ RBAC: Only Super Admin and Admin can access user management
+if (!Permissions::canAccessUserManagement($access->getCurrentRole())) {
+    header('Location: dashboard.php?error=access_denied');
     exit();
 }
 
@@ -33,54 +43,106 @@ $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 $error_message = '';
 $success_message = '';
 
-// Handle delete user
-if (isset($_GET['delete']) && $_GET['delete'] != $admin_id) {
+// ✅ RBAC: Handle delete user with strict checks
+if (isset($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
     
-    // Don't allow deleting yourself
-    if ($delete_id != $admin_id) {
-        // Get user avatar before deleting
-        $stmt = $conn->prepare("SELECT avatar FROM admin_users WHERE id = ?");
-        $stmt->bind_param("i", $delete_id);
-        $stmt->execute();
-        $user_data = $stmt->get_result()->fetch_assoc();
-        
-        $stmt = $conn->prepare("DELETE FROM admin_users WHERE id = ?");
-        $stmt->bind_param("i", $delete_id);
-        
-        if ($stmt->execute()) {
-            // Delete avatar file if exists
-            if ($user_data['avatar']) {
-                $avatar_path = __DIR__ . '/../uploads/avatars/' . $user_data['avatar'];
-                if (file_exists($avatar_path)) {
-                    unlink($avatar_path);
+    try {
+        // Don't allow deleting yourself
+        if ($delete_id == $admin_id) {
+            $error_message = "You cannot delete your own account.";
+        } else {
+            // Get target user details
+            $stmt = $conn->prepare("SELECT role, avatar FROM admin_users WHERE id = ?");
+            $stmt->bind_param("i", $delete_id);
+            $stmt->execute();
+            $target_user = $stmt->get_result()->fetch_assoc();
+            
+            if (!$target_user) {
+                $error_message = "User not found.";
+            } else {
+                // Check if current user can delete this specific user
+                if (!Permissions::canManageUser($admin_role, $target_user['role'], Permissions::ACTION_DELETE)) {
+                    $error_message = "You don't have permission to delete this user.";
+                } else {
+                    // Require password re-authentication for deletion
+                    if (!$access->isReAuthenticated()) {
+                        // Store pending action and redirect to re-auth
+                        $_SESSION['pending_action'] = 'delete_user';
+                        $_SESSION['pending_target'] = $delete_id;
+                        $_SESSION['pending_return_url'] = $_SERVER['REQUEST_URI'];
+                        header('Location: reauth.php?return=' . urlencode($_SERVER['REQUEST_URI']));
+                        exit();
+                    }
+                    
+                    // Proceed with deletion
+                    $stmt = $conn->prepare("DELETE FROM admin_users WHERE id = ?");
+                    $stmt->bind_param("i", $delete_id);
+                    
+                    if ($stmt->execute()) {
+                        // Delete avatar file if exists
+                        if ($target_user['avatar']) {
+                            $avatar_path = __DIR__ . '/../uploads/avatars/' . $target_user['avatar'];
+                            if (file_exists($avatar_path)) {
+                                unlink($avatar_path);
+                            }
+                        }
+                        
+                        // Log the privileged action
+                        $access->logPrivilegedAction($admin_id, 'deleted_user', 'admin_users', $delete_id);
+                        $access->clearReAuthentication();
+                        
+                        $success_message = "User deleted successfully!";
+                    } else {
+                        $error_message = "Failed to delete user.";
+                    }
                 }
             }
-            
-            $auth->logActivity($admin_id, 'deleted_user', 'admin_users', $delete_id);
-            $success_message = "User deleted successfully!";
-        } else {
-            $error_message = "Failed to delete user.";
         }
+    } catch (Exception $e) {
+        $error_message = "An error occurred: " . $e->getMessage();
     }
 }
 
-// Handle status toggle
+// ✅ RBAC: Handle status toggle with permission checks
 if (isset($_GET['toggle_status'])) {
     $toggle_id = (int)$_GET['toggle_status'];
     
-    if ($toggle_id != $admin_id) {
-        $stmt = $conn->prepare("UPDATE admin_users SET status = IF(status = 'active', 'inactive', 'active') WHERE id = ?");
-        $stmt->bind_param("i", $toggle_id);
-        
-        if ($stmt->execute()) {
-            $auth->logActivity($admin_id, 'toggled_user_status', 'admin_users', $toggle_id);
-            $success_message = "User status updated!";
+    try {
+        if ($toggle_id == $admin_id) {
+            $error_message = "You cannot change your own status.";
+        } else {
+            // Get target user role
+            $stmt = $conn->prepare("SELECT role FROM admin_users WHERE id = ?");
+            $stmt->bind_param("i", $toggle_id);
+            $stmt->execute();
+            $target_user = $stmt->get_result()->fetch_assoc();
+            
+            if (!$target_user) {
+                $error_message = "User not found.";
+            } else {
+                // Check if current user can edit this specific user
+                if (!Permissions::canManageUser($admin_role, $target_user['role'], Permissions::ACTION_EDIT)) {
+                    $error_message = "You don't have permission to modify this user.";
+                } else {
+                    $stmt = $conn->prepare("UPDATE admin_users SET status = IF(status = 'active', 'inactive', 'active') WHERE id = ?");
+                    $stmt->bind_param("i", $toggle_id);
+                    
+                    if ($stmt->execute()) {
+                        $auth->logActivity($admin_id, 'toggled_user_status', 'admin_users', $toggle_id);
+                        $success_message = "User status updated!";
+                    } else {
+                        $error_message = "Failed to update user status.";
+                    }
+                }
+            }
         }
+    } catch (Exception $e) {
+        $error_message = "An error occurred: " . $e->getMessage();
     }
 }
 
-// Get all users
+// Get all users with role-based filtering
 $search = $_GET['search'] ?? '';
 $filter_role = $_GET['role'] ?? 'all';
 $filter_status = $_GET['status'] ?? 'all';
@@ -130,7 +192,7 @@ $stats = [
     'editors' => $conn->query("SELECT COUNT(*) as count FROM admin_users WHERE role = 'editor'")->fetch_assoc()['count']
 ];
 
-// Helper function to get avatar URL - IMPROVED VERSION
+// Helper function to get avatar URL
 function getAvatarUrl($avatar) {
     if (!$avatar) {
         return null;
@@ -142,7 +204,6 @@ function getAvatarUrl($avatar) {
     // Check if file exists
     if (file_exists($file_path) && is_file($file_path)) {
         // Return the web-accessible URL
-        // This assumes your admin folder is one level deep from root
         return '../uploads/avatars/' . $avatar;
     }
     
@@ -296,6 +357,14 @@ function getAvatarUrl($avatar) {
             justify-content: center;
             transition: all 0.2s;
             font-size: 14px;
+            text-decoration: none;
+        }
+        
+        .btn-icon:disabled,
+        .btn-icon.disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
         }
         
         .btn-edit {
@@ -303,7 +372,7 @@ function getAvatarUrl($avatar) {
             color: #1e40af;
         }
         
-        .btn-edit:hover {
+        .btn-edit:hover:not(:disabled) {
             background: #bfdbfe;
         }
         
@@ -312,7 +381,7 @@ function getAvatarUrl($avatar) {
             color: #92400e;
         }
         
-        .btn-toggle:hover {
+        .btn-toggle:hover:not(:disabled) {
             background: #fde68a;
         }
         
@@ -321,7 +390,7 @@ function getAvatarUrl($avatar) {
             color: #991b1b;
         }
         
-        .btn-delete:hover {
+        .btn-delete:hover:not(:disabled) {
             background: #fecaca;
         }
         
@@ -403,14 +472,10 @@ function getAvatarUrl($avatar) {
             font-size: 13px;
         }
         
-        /* Debug info - remove after fixing */
-        .debug-info {
-            background: #fef3c7;
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
+        .no-permission-text {
             font-size: 12px;
-            display: none; /* Show this if you need to debug */
+            color: #9ca3af;
+            font-style: italic;
         }
         
         @media (min-width: 768px) {
@@ -438,11 +503,13 @@ function getAvatarUrl($avatar) {
                 <p style="color: #6b7280; margin-top: 5px;">Manage admin users and permissions</p>
             </div>
             <div class="header-actions">
-                <a href="add-user.php" class="btn-add">
-                    <i class="fas fa-plus"></i> Add New User
-                </a>
+                <?php if (Permissions::canAccessUserManagement($admin_role)): ?>
+                    <a href="add-user.php" class="btn-add">
+                        <i class="fas fa-plus"></i> Add New User
+                    </a>
+                <?php endif; ?>
                 <div class="user-info">
-                         <div class="user-avatar">
+                    <div class="user-avatar">
                         <?php if ($avatarUrl): ?>
                             <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
                                  alt="<?php echo htmlspecialchars($admin_name); ?>"
@@ -453,7 +520,7 @@ function getAvatarUrl($avatar) {
                     </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;">Super Admin</div>
+                        <div style="font-size: 12px; color: #6b7280;"><?php echo str_replace('_', ' ', ucwords($admin_role)); ?></div>
                     </div>
                 </div>
             </div>
@@ -461,13 +528,13 @@ function getAvatarUrl($avatar) {
 
         <?php if ($success_message): ?>
             <div class="alert alert-success" style="background: #d1fae5; color: #065f46; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                ✓ <?php echo $success_message; ?>
+                ✓ <?php echo htmlspecialchars($success_message); ?>
             </div>
         <?php endif; ?>
 
         <?php if ($error_message): ?>
             <div class="alert alert-error" style="background: #fee2e2; color: #991b1b; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                ✗ <?php echo $error_message; ?>
+                ✗ <?php echo htmlspecialchars($error_message); ?>
             </div>
         <?php endif; ?>
 
@@ -570,6 +637,12 @@ function getAvatarUrl($avatar) {
                         <?php foreach ($users as $user): 
                             $avatarUrl = getAvatarUrl($user['avatar']);
                             $userInitials = strtoupper(substr($user['name'], 0, 1));
+                            
+                            // ✅ RBAC: Check permissions for each action
+                            $canEdit = Permissions::canManageUser($admin_role, $user['role'], Permissions::ACTION_EDIT);
+                            $canDelete = Permissions::canManageUser($admin_role, $user['role'], Permissions::ACTION_DELETE) 
+                                         && $user['id'] != $admin_id;
+                            $canToggleStatus = $canEdit && $user['id'] != $admin_id;
                         ?>
                             <tr>
                                 <td>
@@ -588,13 +661,6 @@ function getAvatarUrl($avatar) {
                                             <span class="user-email"><?php echo htmlspecialchars($user['email']); ?></span>
                                         </div>
                                     </div>
-                                    <!-- Debug info - uncomment to see what's happening -->
-                                    <!-- <div class="debug-info">
-                                        Avatar in DB: <?php echo $user['avatar'] ?? 'NULL'; ?><br>
-                                        Avatar URL: <?php echo $avatarUrl ?? 'NULL'; ?><br>
-                                        File path: <?php echo __DIR__ . '/../uploads/avatars/' . $user['avatar']; ?><br>
-                                        Exists: <?php echo file_exists(__DIR__ . '/../uploads/avatars/' . $user['avatar']) ? 'YES' : 'NO'; ?>
-                                    </div> -->
                                 </td>
                                 <td>
                                     <span class="role-badge role-<?php echo $user['role']; ?>">
@@ -616,26 +682,49 @@ function getAvatarUrl($avatar) {
                                 </td>
                                 <td>
                                     <div class="action-buttons">
-                                        <a href="edit-user.php?id=<?php echo $user['id']; ?>" class="btn-icon btn-edit" title="Edit User">
-                                            <i class="fas fa-edit"></i>
-                                        </a>
-                                        
-                                        <?php if ($user['id'] != $admin_id): ?>
-                                            <a href="?toggle_status=<?php echo $user['id']; ?>" 
-                                               class="btn-icon btn-toggle" 
-                                               title="Toggle Status"
-                                               onclick="return confirm('Toggle user status?')">
-                                                <i class="fas fa-power-off"></i>
-                                            </a>
-                                            
-                                            <a href="?delete=<?php echo $user['id']; ?>" 
-                                               class="btn-icon btn-delete" 
-                                               title="Delete User"
-                                               onclick="return confirm('Are you sure you want to delete this user? This action cannot be undone.')">
-                                                <i class="fas fa-trash"></i>
-                                            </a>
+                                        <?php if ($user['id'] == $admin_id): ?>
+                                            <span class="no-permission-text">(Current User)</span>
                                         <?php else: ?>
-                                            <span style="font-size: 12px; color: #6b7280; padding: 0 10px;">(You)</span>
+                                            <!-- Edit Button -->
+                                            <?php if ($canEdit): ?>
+                                                <a href="edit-user.php?id=<?php echo $user['id']; ?>" 
+                                                   class="btn-icon btn-edit" 
+                                                   title="Edit User">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="btn-icon btn-edit disabled" title="No permission to edit">
+                                                    <i class="fas fa-edit"></i>
+                                                </span>
+                                            <?php endif; ?>
+                                            
+                                            <!-- Toggle Status Button -->
+                                            <?php if ($canToggleStatus): ?>
+                                                <a href="?toggle_status=<?php echo $user['id']; ?>&role=<?php echo $filter_role; ?>&status=<?php echo $filter_status; ?>&search=<?php echo urlencode($search); ?>" 
+                                                   class="btn-icon btn-toggle" 
+                                                   title="Toggle Status"
+                                                   onclick="return confirm('Toggle user status?')">
+                                                    <i class="fas fa-power-off"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="btn-icon btn-toggle disabled" title="No permission to toggle status">
+                                                    <i class="fas fa-power-off"></i>
+                                                </span>
+                                            <?php endif; ?>
+                                            
+                                            <!-- Delete Button -->
+                                            <?php if ($canDelete): ?>
+                                                <a href="?delete=<?php echo $user['id']; ?>&role=<?php echo $filter_role; ?>&status=<?php echo $filter_status; ?>&search=<?php echo urlencode($search); ?>" 
+                                                   class="btn-icon btn-delete" 
+                                                   title="Delete User"
+                                                   onclick="return confirm('Are you sure you want to delete this user? This action cannot be undone.')">
+                                                    <i class="fas fa-trash"></i>
+                                                </a>
+                                            <?php else: ?>
+                                                <span class="btn-icon btn-delete disabled" title="No permission to delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </span>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </div>
                                 </td>

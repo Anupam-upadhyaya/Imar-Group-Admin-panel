@@ -10,8 +10,19 @@ define('SECURE_ACCESS', true);
 // Use same path structure as gallery.php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../../includes/classes/AccessControl.php';
+require_once __DIR__ . '/../../includes/classes/Permissions.php';
 require_once __DIR__ . '/../includes/avatar-helper.php';
+
 $auth = new Auth($conn);
+$access = new AccessControl($conn);
+
+// ✅ RBAC: Check if user can view blogs
+$access->checkAccess(Permissions::RESOURCE_BLOG, Permissions::ACTION_VIEW);
+
+// Get current user and role
+$currentUser = $auth->getCurrentUser();
+$userRole = $currentUser['role'];
 
 if (!$auth->isLoggedIn()) {
     header('Location: ../login.php');
@@ -31,8 +42,19 @@ $admin_initials = strtoupper(substr($admin_name, 0, 1));
 // Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Handle delete
-if (isset($_GET['delete']) && $admin_role !== 'editor') {
+// RBAC: Handle delete with permission check
+if (isset($_GET['delete'])) {
+
+    if (!Permissions::can($userRole, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)) {
+        $access->logSecurityEvent(
+            $currentUser['id'],
+            'unauthorized_access',
+            'Attempted to delete blog post without permission'
+        );
+        header('Location: blog.php?error=cannot_delete');
+        exit();
+    }
+
     $delete_id = (int)$_GET['delete'];
     
     // Get image paths before deleting
@@ -40,27 +62,35 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
     $stmt->bind_param("i", $delete_id);
     $stmt->execute();
     $result = $stmt->get_result();
-    
+
     if ($row = $result->fetch_assoc()) {
+
         // Delete from database
         $stmt = $conn->prepare("DELETE FROM blog_posts WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
-        
+
         // Delete image files
         $document_root = $_SERVER['DOCUMENT_ROOT'];
+
         if ($row['featured_image']) {
             $image_path = $document_root . '/Imar-Group-Website/' . $row['featured_image'];
-            if (file_exists($image_path)) @unlink($image_path);
+            if (file_exists($image_path)) unlink($image_path);
         }
+
         if ($row['thumbnail']) {
             $thumb_path = $document_root . '/Imar-Group-Website/' . $row['thumbnail'];
-            if (file_exists($thumb_path)) @unlink($thumb_path);
+            if (file_exists($thumb_path)) unlink($thumb_path);
         }
-        
-        // Log activity
-        $auth->logActivity($admin_id, 'deleted_blog_post', 'blog_posts', $delete_id);
-        
+
+        // Log privileged action
+        $access->logPrivilegedAction(
+            $currentUser['id'],
+            'deleted_blog_post',
+            'blog_posts',
+            $delete_id
+        );
+
         $success_message = "Blog post deleted successfully!";
     }
 }
@@ -571,11 +601,14 @@ $category_counts = [
                             <div class="blog-card-actions">
                                 <a href="view-blog.php?id=<?php echo $post['id']; ?>" class="btn-small btn-view">View</a>
                                 <a href="edit-blog.php?id=<?php echo $post['id']; ?>" class="btn-small btn-edit">Edit</a>
-                                <?php if ($admin_role !== 'editor'): ?>
-                                    <a href="?delete=<?php echo $post['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>" 
-                                       class="btn-small btn-delete"
-                                       onclick="return confirm('Are you sure you want to delete this blog post?')">Delete</a>
-                                <?php endif; ?>
+                               <?php if (Permissions::can($userRole, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)): ?>
+    <a href="?delete=<?php echo $post['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>" 
+       class="btn-small btn-delete"
+       onclick="return confirm('Are you sure you want to delete this blog post?')">
+       Delete
+    </a>
+<?php endif; ?>
+
                             </div>
                         </div>
                     </div>
