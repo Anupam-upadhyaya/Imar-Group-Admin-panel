@@ -12,7 +12,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -22,26 +21,21 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Handle delete
 if (isset($_GET['delete']) && $admin_role !== 'editor') {
     $delete_id = (int)$_GET['delete'];
     
-    // Get image path before deleting
     $stmt = $conn->prepare("SELECT image_path FROM gallery WHERE id = ?");
     $stmt->bind_param("i", $delete_id);
     $stmt->execute();
     $result = $stmt->get_result();
     
     if ($row = $result->fetch_assoc()) {
-        // Delete from database
         $stmt = $conn->prepare("DELETE FROM gallery WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
         
-        // Log activity only if admin_id exists
         if ($admin_id) {
             $auth->logActivity($admin_id, 'deleted_gallery_item', 'gallery', $delete_id);
         }
@@ -50,11 +44,9 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
     }
 }
 
-// Get filter
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query
 $whereConditions = [];
 $params = [];
 $types = '';
@@ -89,7 +81,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $gallery_items = $result->fetch_all(MYSQLI_ASSOC);
 
-// Get counts
 $counts = [
     'all' => $conn->query("SELECT COUNT(*) as count FROM gallery")->fetch_assoc()['count'],
     'featured' => $conn->query("SELECT COUNT(*) as count FROM gallery WHERE is_featured = 1")->fetch_assoc()['count'],
@@ -356,8 +347,6 @@ $counts = [
     
    <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
-
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Gallery Management</h1>
@@ -387,7 +376,6 @@ $counts = [
             </div>
         <?php endif; ?>
 
-        <!-- Filters -->
         <div class="inquiries-header">
             <div class="filter-tabs">
                 <a href="?filter=all" class="filter-tab <?php echo $filter === 'all' ? 'active' : ''; ?>">
@@ -419,7 +407,6 @@ $counts = [
             </div>
         </div>
 
-        <!-- Gallery Grid -->
         <?php if (empty($gallery_items)): ?>
             <div class="empty-state">
                 <svg width="80" height="80" viewBox="0 0 24 24" fill="#d1d5db">
@@ -463,7 +450,6 @@ $counts = [
             </div>
         <?php endif; ?>
 
-        <!-- Add New Button -->
         <a href="add-gallery.php" class="add-new-btn" title="Add New Gallery Item">+</a>
     </div>
 </div>

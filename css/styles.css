@@ -1,11 +1,4 @@
-/* =============================
-   IMAR GROUP ADMIN PANEL - COMPLETE CSS
-   File: css/Style.css
-============================= */
 
-/* =============================
-   RESET & BASE STYLES
-============================= */
 * {
     margin: 0;
     padding: 0;
@@ -24,9 +17,7 @@ a {
     color: inherit;
 }
 
-/* =============================
-   LOGIN PAGE STYLES
-============================= */
+
 .login-container {
     display: flex;
     justify-content: center;
@@ -71,7 +62,6 @@ a {
     z-index: 1;
 }
 
-/* LOGIN PAGE LOGO STYLES */
 .login-card .logo-container {
     display: flex;
     align-items: center;
@@ -82,8 +72,8 @@ a {
 }
 
 .login-card .logo-icon {
-    width: 80px;  /* Increased from 60px - CHANGE THIS VALUE */
-    height: 80px; /* Increased from 60px - CHANGE THIS VALUE */
+    width: 80px;  
+    height: 80px; 
     flex-shrink: 0;
 }
 
@@ -112,10 +102,9 @@ a {
     font-weight: 400;
 }
 
-/* Fallback for missing logo image */
 .logo-fallback {
-    width: 80px;  /* Matches .logo-icon size - CHANGE THIS IF YOU CHANGE LOGO SIZE */
-    height: 80px; /* Matches .logo-icon size - CHANGE THIS IF YOU CHANGE LOGO SIZE */
+    width: 80px;  
+    height: 80px; 
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
     border-radius: 12px;
     display: flex;
@@ -123,7 +112,7 @@ a {
     justify-content: center;
     color: white;
     font-weight: bold;
-    font-size: 28px;  /* Increased from 20px to match larger icon */
+    font-size: 28px;
 }
 
 .security-badge {
@@ -140,7 +129,6 @@ a {
     fill: currentColor;
 }
 
-/* Alert Styles */
 .alert {
     padding: 12px 20px;
     border-radius: 8px;
@@ -167,7 +155,6 @@ a {
     font-weight: 600;
 }
 
-/* Form Styles */
 .input-group {
     margin-bottom: 20px;
 }
@@ -302,18 +289,12 @@ a {
     color: rgba(255, 255, 255, 0.7);
 }
 
-/* =============================
-   DASHBOARD LAYOUT
-============================= */
 .dashboard {
     display: flex;
     min-height: 100vh;
     background-color: #f8f9fa;
 }
 
-/* =============================
-   SIDEBAR STYLES
-============================= */
 .sidebar {
     width: 260px;
     background-color: #1f2937;
@@ -337,7 +318,6 @@ a {
     gap: 12px;
 }
 
-/* SIDEBAR Logo Container - for actual logo image */
 .sidebar-logo .logo-container {
     width: 50px;
     height: 50px;
@@ -425,9 +405,6 @@ a {
     fill: #d1d5db;
 }
 
-/* =============================
-   MAIN CONTENT AREA
-============================= */
 .main-content {
     flex: 1;
     padding: 30px;
@@ -491,9 +468,6 @@ a {
     background-color: #dc2626;
 }
 
-/* =============================
-   STATS GRID
-============================= */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -582,9 +556,6 @@ a {
     fill: #ea580c;
 }
 
-/* =============================
-   CONTENT SECTIONS
-============================= */
 .content-section {
     background: #ffffff;
     padding: 20px;
@@ -606,9 +577,6 @@ a {
     margin-bottom: 8px;
 }
 
-/* =============================
-   BUTTON STYLES
-============================= */
 .btn-delete {
     background-color: #dc2626 !important;
     color: white !important;
@@ -624,9 +592,6 @@ a {
     flex-wrap: wrap;
 }
 
-/* =============================
-   RESPONSIVE DESIGN - LOGIN PAGE
-============================= */
 @media (max-width: 480px) {
     .login-container {
         padding: 15px;
@@ -651,14 +616,11 @@ a {
     }
     
     .login-card .logo-icon {
-        width: 70px;  /* Slightly smaller on mobile - ADJUST THIS FOR MOBILE SIZE */
-        height: 70px; /* Slightly smaller on mobile - ADJUST THIS FOR MOBILE SIZE */
+        width: 70px; 
+        height: 70px; 
     }
 }
 
-/* =============================
-   RESPONSIVE DESIGN - DASHBOARD
-============================= */
 @media (max-width: 1024px) {
     .sidebar {
         width: 220px;
@@ -713,9 +675,6 @@ a {
     }
 }
 
-/* =============================
-   UTILITY CLASSES
-============================= */
 .text-center {
     text-align: center;
 }
@@ -752,9 +711,6 @@ a {
     gap: 20px;
 }
 
-/* =============================
-   SCROLLBAR STYLING
-============================= */
 ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -772,10 +728,7 @@ a {
 ::-webkit-scrollbar-thumb:hover {
     background: #6b7280;
 }
-/* =============================
-   avatar helper styles
-============================= */
-/* Avatar styles for header - Add this to your <style> section */
+
 .user-avatar {
     width: 40px;
     height: 40px;
@@ -788,17 +741,16 @@ a {
     font-weight: 600;
     font-size: 16px;
     overflow: hidden;
-    flex-shrink: 0; /* Prevents avatar from shrinking */
+    flex-shrink: 0; 
 }
 
 .user-avatar img {
     width: 100%;
     height: 100%;
     object-fit: cover;
-    display: block; /* Removes any inline spacing */
+    display: block; 
 }
 
-/* Avatar styles for activity feed (if you're using it elsewhere) */
 .activity-icon {
     width: 40px;
     height: 40px;
@@ -821,7 +773,6 @@ a {
     display: block;
 }
 
-/* Self-deletion warning badge */
 .deletion-pending-badge {
     background: #fee2e2;
     color: #991b1b;
@@ -882,8 +833,6 @@ a {
     background: #059669;
     transform: translateY(-2px);
 }
-
-/* Current user indicator */
 .current-user-badge {
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
     color: white;

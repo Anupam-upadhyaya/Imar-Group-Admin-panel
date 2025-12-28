@@ -1,15 +1,10 @@
 <?php
-/**
- * IMAR Group Admin Panel - Video Management
- * File: admin/VIDEOS_CODE/videos.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
-require_once __DIR__ . '/../includes/avatar-helper.php'; // CORRECTED PATH
+require_once __DIR__ . '/../includes/avatar-helper.php'; 
 
 $auth = new Auth($conn);
 
@@ -18,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -28,23 +22,19 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// Fetch notification counts for sidebar
 $new_inquiries_count = $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'")->fetch_assoc()['count'] ?? 0;
 
-// Handle Add Video
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add') {
     $title = trim($_POST['title'] ?? '');
     $youtube_url = trim($_POST['youtube_url'] ?? '');
     $display_order = (int)($_POST['display_order'] ?? 0);
     $status = $_POST['status'] ?? 'active';
     
-    // Extract YouTube ID from URL
     $youtube_id = extractYouTubeId($youtube_url);
     
     if (empty($youtube_url)) {
@@ -52,12 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     } elseif (!$youtube_id) {
         $error_message = "Invalid YouTube URL. Please enter a valid YouTube video link.";
     } else {
-        // Auto-generate title if empty
+
         if (empty($title)) {
             $title = "Video " . time();
         }
         
-        // Generate thumbnail URL
         $thumbnail_url = "https://img.youtube.com/vi/{$youtube_id}/maxresdefault.jpg";
         
         $stmt = $conn->prepare("INSERT INTO videos (title, youtube_url, youtube_id, thumbnail_url, status, display_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
@@ -73,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 
-// Handle Delete
 if (isset($_GET['delete']) && $admin_role !== 'editor') {
     $delete_id = (int)$_GET['delete'];
     
@@ -86,7 +74,6 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
     }
 }
 
-// Handle Status Toggle
 if (isset($_GET['toggle']) && isset($_GET['status'])) {
     $toggle_id = (int)$_GET['toggle'];
     $new_status = $_GET['status'] === 'active' ? 'inactive' : 'active';
@@ -98,17 +85,14 @@ if (isset($_GET['toggle']) && isset($_GET['status'])) {
     $success_message = "Video status updated!";
 }
 
-// Fetch all videos
 $videos = $conn->query("SELECT * FROM videos ORDER BY display_order ASC, created_at DESC")->fetch_all(MYSQLI_ASSOC);
 
-// Get stats
 $stats = [
     'total' => $conn->query("SELECT COUNT(*) as count FROM videos")->fetch_assoc()['count'],
     'active' => $conn->query("SELECT COUNT(*) as count FROM videos WHERE status = 'active'")->fetch_assoc()['count'],
     'views' => $conn->query("SELECT SUM(views) as count FROM videos")->fetch_assoc()['count'] ?? 0
 ];
 
-// Function to extract YouTube ID from URL
 function extractYouTubeId($url) {
     $patterns = [
         '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/',
@@ -126,7 +110,6 @@ function extractYouTubeId($url) {
     return false;
 }
 
-// Get suggested display order
 $max_order = $conn->query("SELECT MAX(display_order) as max_order FROM videos")->fetch_assoc()['max_order'] ?? 0;
 $suggested_order = $max_order + 1;
 ?>
@@ -139,7 +122,7 @@ $suggested_order = $max_order + 1;
     <link rel="stylesheet" href="../../css/styles.css">
     <link rel="stylesheet" href="../../css/dashboard.css">
     <style>
-        /* Avatar styles for header */
+
         .user-avatar {
             width: 40px;
             height: 40px;
@@ -183,7 +166,7 @@ $suggested_order = $max_order + 1;
         .video-thumbnail {
             position: relative;
             width: 100%;
-            padding-top: 56.25%; /* 16:9 aspect ratio */
+            padding-top: 56.25%; 
             background: #f3f4f6;
             overflow: hidden;
         }
@@ -400,13 +383,11 @@ $suggested_order = $max_order + 1;
 <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Video Management</h1>
             <div class="header-actions">
                 <div class="user-info">
-                    <!-- UPDATED AVATAR SECTION -->
                     <div class="user-avatar">
                         <?php if ($avatarUrl): ?>
                             <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
@@ -437,7 +418,6 @@ $suggested_order = $max_order + 1;
             </div>
         <?php endif; ?>
 
-        <!-- Stats -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-content">
@@ -476,7 +456,6 @@ $suggested_order = $max_order + 1;
             </div>
         </div>
         
-        <!-- Video Grid -->
         <?php if (empty($videos)): ?>
             <div class="empty-state">
                 <svg width="80" height="80" viewBox="0 0 24 24" fill="#d1d5db">
@@ -534,7 +513,7 @@ $suggested_order = $max_order + 1;
 </div>
 
 <script>
-// YouTube URL validation and preview
+
 const youtubeUrlInput = document.getElementById('youtube_url');
 if (youtubeUrlInput) {
     youtubeUrlInput.addEventListener('input', function() {
@@ -543,7 +522,6 @@ if (youtubeUrlInput) {
         const previewId = document.getElementById('previewId');
         const previewThumb = document.getElementById('previewThumb');
         
-        // Extract YouTube ID
         const patterns = [
             /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
             /youtu\.be\/([a-zA-Z0-9_-]+)/,

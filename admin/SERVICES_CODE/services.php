@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Services Management (FIXED VIEW BUTTON)
- * File: admin/SERVICES_CODE/services.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -18,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -28,10 +22,8 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Handle delete
 if (isset($_GET['delete']) && $admin_role !== 'editor') {
     $delete_id = (int)$_GET['delete'];
     
@@ -45,7 +37,6 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
         
-        // Delete icon file if exists
         if ($row['icon_path']) {
             $file_path_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/' . $row['icon_path'];
             if (file_exists($file_path_abs)) {
@@ -59,12 +50,10 @@ if (isset($_GET['delete']) && $admin_role !== 'editor') {
     }
 }
 
-// Get filter and search
 $filter_category = $_GET['category'] ?? 'all';
 $filter_status = $_GET['status'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query
 $whereConditions = [];
 $params = [];
 $types = '';
@@ -101,7 +90,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $services = $result->fetch_all(MYSQLI_ASSOC);
 
-// Get counts for stats
 $stats = [
     'total' => $conn->query("SELECT COUNT(*) as count FROM services")->fetch_assoc()['count'],
     'active' => $conn->query("SELECT COUNT(*) as count FROM services WHERE status = 'active'")->fetch_assoc()['count'],
@@ -117,13 +105,9 @@ $category_counts = [
     'general' => $conn->query("SELECT COUNT(*) as count FROM services WHERE category = 'general'")->fetch_assoc()['count']
 ];
 
-// FIX: Configure client website URL based on your actual setup
-// This should point to your client-side services page (services.html or services.php)
 $client_website_url = 'http://localhost/Imar-Group-Website';
 
-// Detect if you're using .html or .php for services page
-// Check which one exists and use that
-$services_page = 'services.html'; // Change to 'services.php' if that's what you use
+$services_page = 'services.html'; 
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -362,7 +346,7 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
     transition: all 0.3s ease;
     outline: none;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    width: 100%; /* Increased min width */
+    width: 100%;
 }
 
 .search-input:focus {
@@ -399,7 +383,6 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* Responsive adjustments */
 @media (min-width: 768px) {
     .search-input {
         min-width: 400px;
@@ -503,7 +486,7 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
             </div>
         <?php endif; ?>
 
-        <!-- Stats Cards -->
+
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-content">
@@ -554,7 +537,7 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
             </div>
         </div>
 
-        <!-- Filters -->
+
         <div class="search-filter-row">
             <div class="search-box">
                 <form method="GET" action="">
@@ -580,7 +563,7 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
             </select>
         </div>
 
-        <!-- Services Grid -->
+ 
         <?php if (empty($services)): ?>
             <div class="empty-state">
                 <svg width="80" height="80" viewBox="0 0 24 24" fill="#d1d5db">
@@ -595,8 +578,8 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
                     <div class="service-card-admin">
                         <div class="service-card-icon">
                             <?php if (!empty($service['icon_path'])): ?>
+
                                 <?php
-                                // Use exact same pattern as Gallery (4-level traversal)
                                 $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
                                 ?>
                                 <img src="<?php echo $icon_display_path; ?>" 
@@ -628,10 +611,8 @@ $services_page = 'services.html'; // Change to 'services.php' if that's what you
                             </div>
                             
                             <div class="service-card-actions">
+                                
                                 <?php
-                                // FIX: Build correct URL to client website services page
-                                // The client side uses JavaScript to open modals based on URL parameter
-                                // URL format: http://localhost/Imar-Group-Website/services.html?service=slug
                                 $client_service_url = $client_website_url . '/' . $services_page . '?service=' . urlencode($service['slug']);
                                 ?>
                                 <a href="<?php echo $client_service_url; ?>" 

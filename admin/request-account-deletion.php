@@ -1,12 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Self-Deletion Request
- * File: admin/request-self-deletion.php
- * 
- * Allows Super Admins to request deletion of their own account
- * Implements 5-day cooling period with cancellation option
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -24,8 +16,6 @@ if (!$auth->isLoggedIn()) {
 }
 
 $currentUser = $auth->getCurrentUser();
-
-// ✅ Only Super Admins can request self-deletion
 if ($currentUser['role'] !== Permissions::ROLE_SUPER_ADMIN) {
     header('Location: dashboard.php?error=access_denied');
     exit();
@@ -34,8 +24,6 @@ if ($currentUser['role'] !== Permissions::ROLE_SUPER_ADMIN) {
 $error = '';
 $success = '';
 $info = '';
-
-// Check for existing deletion request
 $stmt = $conn->prepare("SELECT * FROM user_deletion_requests WHERE user_id = ? AND status = 'pending'");
 $stmt->bind_param("i", $currentUser['id']);
 $stmt->execute();
@@ -49,16 +37,12 @@ if ($existingRequest) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$existingRequest) {
     $password = $_POST['password'] ?? '';
     $confirmation = $_POST['confirmation'] ?? '';
-    
-    // Validate confirmation text
     if ($confirmation !== 'DELETE MY ACCOUNT') {
         $error = 'Please type "DELETE MY ACCOUNT" to confirm';
     }
-    // Require re-authentication
     elseif (!$access->requireReAuthentication($password)) {
         $error = 'Incorrect password';
     } else {
-        // Check if this is the last Super Admin
         $stmt = $conn->prepare("SELECT COUNT(*) as count FROM admin_users WHERE role = ? AND status = 'active' AND id != ?");
         $role = Permissions::ROLE_SUPER_ADMIN;
         $stmt->bind_param("si", $role, $currentUser['id']);
@@ -68,7 +52,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$existingRequest) {
         if ($result['count'] < 1) {
             $error = "Cannot delete the last Super Admin account. Please create another Super Admin first.";
         } else {
-            // Create deletion request with 5-day cooling period
             $scheduledDate = date('Y-m-d H:i:s', strtotime('+5 days'));
             $ip = $_SERVER['REMOTE_ADDR'];
             
@@ -76,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$existingRequest) {
             $stmt->bind_param("iss", $currentUser['id'], $scheduledDate, $ip);
             
             if ($stmt->execute()) {
-                // Log the action
                 $access->logPrivilegedAction(
                     $currentUser['id'], 
                     'requested_self_deletion', 
@@ -545,7 +527,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$existingRequest) {
             }
         }
         
-        // Enable submit button only when confirmation is correct
         const confirmationInput = document.getElementById('confirmation');
         const submitBtn = document.getElementById('submitBtn');
         
@@ -560,7 +541,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$existingRequest) {
                 }
             });
             
-            // Double confirmation on submit
             document.getElementById('deletionForm').addEventListener('submit', function(e) {
                 if (!confirm('Are you absolutely sure you want to delete your account? This will be scheduled for 5 days from now.')) {
                     e.preventDefault();

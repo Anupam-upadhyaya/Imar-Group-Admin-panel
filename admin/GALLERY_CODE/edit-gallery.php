@@ -1,10 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Edit Gallery Item
- * File: admin/edit-gallery.php
- * Fixed with absolute paths
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -19,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -29,18 +22,15 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// Define paths
 $document_root = $_SERVER['DOCUMENT_ROOT'];
 $upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Gallery/';
 $upload_base_url = 'Gallery/';
 
-// Get gallery item ID
 $gallery_id = (int)($_GET['id'] ?? 0);
 
 if (!$gallery_id) {
@@ -48,7 +38,6 @@ if (!$gallery_id) {
     exit();
 }
 
-// Fetch existing gallery item
 $stmt = $conn->prepare("SELECT * FROM gallery WHERE id = ?");
 $stmt->bind_param("i", $gallery_id);
 $stmt->execute();
@@ -60,7 +49,6 @@ if (!$gallery_item) {
     exit();
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -70,19 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $display_order = (int)($_POST['display_order'] ?? 0);
     $status = trim($_POST['status'] ?? 'active');
     
-    // Validate status value
     if (!in_array($status, ['active', 'inactive', 'pending'])) {
         $status = 'active';
     }
     
-    // Validation
     if (empty($title)) {
         $error_message = "Title is required.";
     } else {
         $image_path = $gallery_item['image_path'];
         $thumbnail_path = $gallery_item['thumbnail_path'];
         
-        // Check if new image is uploaded
         if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
             $file = $_FILES['image'];
             $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -93,13 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($file['size'] > $max_size) {
                 $error_message = "File size exceeds 5MB limit.";
             } else {
-                // Delete old image
                 $old_image_full = $document_root . '/Imar-Group-Website/' . $gallery_item['image_path'];
                 if (file_exists($old_image_full)) {
                     @unlink($old_image_full);
                 }
                 
-                // Delete old thumbnail
                 if ($gallery_item['thumbnail_path']) {
                     $old_thumb_full = $document_root . '/Imar-Group-Website/' . $gallery_item['thumbnail_path'];
                     if (file_exists($old_thumb_full)) {
@@ -107,7 +90,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                // Create category folder
                 $category_folder = strtoupper($category);
                 $upload_dir_abs = $upload_base_abs . $category_folder . '/';
                 
@@ -115,16 +97,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mkdir($upload_dir_abs, 0755, true);
                 }
                 
-                // Generate unique filename
                 $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                 $filename = 'gallery_' . time() . '_' . uniqid() . '.' . $file_extension;
                 $file_path_abs = $upload_dir_abs . $filename;
                 
-                // Relative path for database
                 $image_path = $upload_base_url . $category_folder . '/' . $filename;
                 
                 if (move_uploaded_file($file['tmp_name'], $file_path_abs)) {
-                    // Create thumbnail
                     $thumbnail_filename = 'thumb_' . $filename;
                     $thumbnail_created = createThumbnail($file_path_abs, $upload_dir_abs, $thumbnail_filename);
                     $thumbnail_path = $thumbnail_created ? $upload_base_url . $category_folder . '/' . $thumbnail_filename : null;
@@ -134,7 +113,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // Update database if no errors
         if (empty($error_message)) {
             $stmt = $conn->prepare("UPDATE gallery SET title = ?, description = ?, image_path = ?, thumbnail_path = ?, category = ?, size_class = ?, is_featured = ?, display_order = ?, status = ? WHERE id = ?");
             $stmt->bind_param("ssssssiisi", $title, $description, $image_path, $thumbnail_path, $category, $size_class, $is_featured, $display_order, $status, $gallery_id);
@@ -144,7 +122,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Gallery item updated successfully!";
                 
-                // Refresh item data
                 $stmt = $conn->prepare("SELECT * FROM gallery WHERE id = ?");
                 $stmt->bind_param("i", $gallery_id);
                 $stmt->execute();
@@ -159,7 +136,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Thumbnail creation function
 function createThumbnail($source, $dest_dir, $thumbnail_filename) {
     if (!extension_loaded('gd')) {
         return false;

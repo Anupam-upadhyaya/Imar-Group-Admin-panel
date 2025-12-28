@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Edit User
- * File: admin/edit-user.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -16,8 +11,6 @@ if (!$auth->isLoggedIn()) {
     header('Location: login.php');
     exit();
 }
-
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -27,10 +20,8 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Only super_admin can edit users
 if ($admin_role !== 'super_admin') {
     header('Location: dashboard.php');
     exit();
@@ -40,7 +31,6 @@ $user_id = (int)($_GET['id'] ?? 0);
 $error_message = '';
 $success_message = '';
 
-// Get user data
 $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -51,7 +41,6 @@ if (!$user) {
     exit();
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -62,7 +51,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = trim($_POST['status'] ?? 'active');
     $remove_avatar = isset($_POST['remove_avatar']);
     
-    // Validation
     if (empty($name)) {
         $error_message = "Name is required.";
     } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -74,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!in_array($role, ['super_admin', 'admin', 'editor'])) {
         $error_message = "Invalid role selected.";
     } else {
-        // Check if email already exists (excluding current user)
         $stmt = $conn->prepare("SELECT id FROM admin_users WHERE email = ? AND id != ?");
         $stmt->bind_param("si", $email, $user_id);
         $stmt->execute();
@@ -84,7 +71,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $avatar_filename = $user['avatar'];
             
-            // Handle avatar removal
             if ($remove_avatar && $avatar_filename) {
                 $avatar_path = __DIR__ . '/../uploads/avatars/' . $avatar_filename;
                 if (file_exists($avatar_path)) {
@@ -93,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $avatar_filename = null;
             }
             
-            // Handle new avatar upload
             if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
                 $upload_dir = __DIR__ . '/../uploads/avatars/';
                 
@@ -117,7 +102,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($image_info === false) {
                         $error_message = "File is not a valid image.";
                     } else {
-                        // Delete old avatar if exists
                         if ($avatar_filename) {
                             $old_avatar_path = $upload_dir . $avatar_filename;
                             if (file_exists($old_avatar_path)) {
@@ -136,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // Update user
             if (empty($error_message)) {
                 if (!empty($password)) {
                     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
@@ -151,7 +134,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $auth->logActivity($admin_id, 'updated_user', 'admin_users', $user_id);
                     $success_message = "User updated successfully!";
                     
-                    // Refresh user data
                     $stmt = $conn->prepare("SELECT * FROM admin_users WHERE id = ?");
                     $stmt->bind_param("i", $user_id);
                     $stmt->execute();
@@ -436,7 +418,7 @@ function getAvatarUrl($avatar) {
 
         <form method="POST" id="editUserForm" enctype="multipart/form-data">
             <div class="form-container">
-                <!-- Avatar Upload -->
+
                 <div class="avatar-upload-container">
                     <div class="avatar-preview" id="avatarPreview">
                         <?php 
@@ -472,14 +454,12 @@ function getAvatarUrl($avatar) {
                     </div>
                 </div>
 
-                <!-- Full Name -->
                 <div class="form-group">
                     <label for="name">Full Name <span class="required">*</span></label>
                     <input type="text" id="name" name="name" required placeholder="e.g., John Doe" 
                            value="<?php echo htmlspecialchars($user['name']); ?>" oninput="updateAvatarInitials()">
                 </div>
 
-                <!-- Email & Date of Birth -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="email">Email Address <span class="required">*</span></label>
@@ -493,7 +473,6 @@ function getAvatarUrl($avatar) {
                     </div>
                 </div>
 
-                <!-- Password (Optional) -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="password">New Password</label>
@@ -518,7 +497,6 @@ function getAvatarUrl($avatar) {
                     </div>
                 </div>
 
-                <!-- Role & Status -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="role">User Role <span class="required">*</span></label>
@@ -538,7 +516,6 @@ function getAvatarUrl($avatar) {
                     </div>
                 </div>
 
-                <!-- Submit Buttons -->
                 <div class="btn-group">
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> Update User

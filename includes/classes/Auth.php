@@ -1,11 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Authentication Class
- * File: includes/classes/Auth.php
- * Updated to use admin_users table
- */
-
-// Prevent direct access
 if (!defined('SECURE_ACCESS')) {
     die('Direct access not permitted');
 }
@@ -18,13 +11,9 @@ class Auth {
         $this->conn = $conn;
         $this->initSession();
     }
-    
-    /**
-     * Initialize secure session
-     */
+
     private function initSession() {
         if (session_status() === PHP_SESSION_NONE) {
-            // Set secure session parameters
             ini_set('session.cookie_httponly', 1);
             ini_set('session.use_only_cookies', 1);
             ini_set('session.cookie_secure', isset($_SERVER['HTTPS'])); // Only for HTTPS
@@ -32,7 +21,6 @@ class Auth {
             session_name(SESSION_NAME);
             session_start();
             
-            // Regenerate session ID periodically for security
             if (!isset($_SESSION['created'])) {
                 $_SESSION['created'] = time();
             } else if (time() - $_SESSION['created'] > 1800) {
@@ -42,22 +30,16 @@ class Auth {
         }
     }
     
-    /**
-     * Login user
-     */
     public function login($email, $password) {
-        // Check for too many failed login attempts
         if ($this->isLoginLocked($email)) {
             return [
                 'success' => false,
                 'message' => 'Too many failed login attempts. Please try again in 15 minutes.'
             ];
         }
-        
-        // Sanitize email
+
         $email = $this->conn->real_escape_string(trim($email));
         
-        // Get user from database - REMOVED username column
         $sql = "SELECT id, name, email, password, role, status, avatar 
                 FROM {$this->table} 
                 WHERE email = ? 
@@ -78,7 +60,6 @@ class Auth {
         
         $user = $result->fetch_assoc();
         
-        // Check if account is active
         if ($user['status'] !== 'active') {
             $this->logLoginAttempt($email, false);
             return [
@@ -87,7 +68,6 @@ class Auth {
             ];
         }
         
-        // Verify password
         if (!password_verify($password, $user['password'])) {
             $this->logLoginAttempt($email, false);
             return [
@@ -96,7 +76,6 @@ class Auth {
             ];
         }
         
-        // Login successful - Set session variables
         $_SESSION['admin_id'] = $user['id'];
         $_SESSION['admin_email'] = $user['email'];
         $_SESSION['admin_name'] = $user['name'];
@@ -105,14 +84,11 @@ class Auth {
         $_SESSION['logged_in'] = true;
         $_SESSION['last_activity'] = time();
         
-        // Update last login
         $this->updateLastLogin($user['id']);
         
-        // Log successful login
         $this->logLoginAttempt($email, true);
         $this->logActivity($user['id'], 'login');
         
-        // Clear failed login attempts
         $this->clearLoginAttempts($email);
         
         return [
@@ -120,53 +96,39 @@ class Auth {
             'message' => 'Login successful!'
         ];
     }
-    
-    /**
-     * Logout user
-     */
+  
     public function logout() {
         if (isset($_SESSION['admin_id'])) {
             $this->logActivity($_SESSION['admin_id'], 'logout');
         }
         
-        // Unset all session variables
         $_SESSION = array();
         
-        // Destroy session cookie
         if (isset($_COOKIE[session_name()])) {
             setcookie(session_name(), '', time() - 3600, '/');
         }
         
-        // Destroy session
         session_destroy();
         
         return true;
     }
-    
-    /**
-     * Check if user is logged in
-     */
+
     public function isLoggedIn() {
         if (!isset($_SESSION['logged_in']) || $_SESSION['logged_in'] !== true) {
             return false;
         }
         
-        // Check session timeout
         if (isset($_SESSION['last_activity']) && 
             (time() - $_SESSION['last_activity'] > SESSION_LIFETIME)) {
             $this->logout();
             return false;
         }
         
-        // Update last activity time
         $_SESSION['last_activity'] = time();
         
         return true;
     }
-    
-    /**
-     * Get current user data
-     */
+
     public function getCurrentUser() {
         if (!$this->isLoggedIn()) {
             return null;
@@ -181,9 +143,7 @@ class Auth {
         ];
     }
     
-    /**
-     * Check if login is locked due to failed attempts
-     */
+
     private function isLoginLocked($email) {
         $email = $this->conn->real_escape_string($email);
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -204,9 +164,7 @@ class Auth {
         return $row['attempts'] >= MAX_LOGIN_ATTEMPTS;
     }
     
-    /**
-     * Log login attempt
-     */
+
     private function logLoginAttempt($email, $success) {
         $email = $this->conn->real_escape_string($email);
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -220,9 +178,7 @@ class Auth {
         $stmt->execute();
     }
     
-    /**
-     * Clear failed login attempts
-     */
+
     private function clearLoginAttempts($email) {
         $email = $this->conn->real_escape_string($email);
         $ip = $_SERVER['REMOTE_ADDR'];
@@ -236,9 +192,7 @@ class Auth {
         $stmt->execute();
     }
     
-    /**
-     * Update last login time
-     */
+
     private function updateLastLogin($user_id) {
         $ip = $_SERVER['REMOTE_ADDR'];
         
@@ -250,10 +204,7 @@ class Auth {
         $stmt->bind_param("si", $ip, $user_id);
         $stmt->execute();
     }
-    
-    /**
-     * Log user activity
-     */
+
     public function logActivity($user_id, $action, $table_affected = null, $record_id = null, $details = null) {
         $ip = $_SERVER['REMOTE_ADDR'];
         $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? 'Unknown';
@@ -267,9 +218,7 @@ class Auth {
         $stmt->execute();
     }
     
-    /**
-     * Generate CSRF Token
-     */
+
     public static function generateCSRFToken() {
         if (!isset($_SESSION['csrf_token'])) {
             $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
@@ -277,9 +226,6 @@ class Auth {
         return $_SESSION['csrf_token'];
     }
     
-    /**
-     * Verify CSRF Token
-     */
     public static function verifyCSRFToken($token) {
         if (!isset($_SESSION['csrf_token'])) {
             return false;
@@ -287,9 +233,7 @@ class Auth {
         return hash_equals($_SESSION['csrf_token'], $token);
     }
     
-    /**
-     * Check user role/permission
-     */
+
     public function hasRole($role) {
         if (!$this->isLoggedIn()) {
             return false;
@@ -297,12 +241,10 @@ class Auth {
         
         $userRole = $_SESSION['admin_role'] ?? '';
         
-        // Super admin has all permissions
         if ($userRole === 'super_admin') {
             return true;
         }
-        
-        // Check specific role
+
         if (is_array($role)) {
             return in_array($userRole, $role);
         }
@@ -310,19 +252,14 @@ class Auth {
         return $userRole === $role;
     }
     
-    /**
-     * Require login - redirect if not logged in
-     */
+
     public function requireLogin() {
         if (!$this->isLoggedIn()) {
             header('Location: login.php');
             exit();
         }
     }
-    
-    /**
-     * Require specific role
-     */
+
     public function requireRole($role) {
         $this->requireLogin();
         

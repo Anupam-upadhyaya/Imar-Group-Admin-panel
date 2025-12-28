@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - View Blog Post
- * File: admin/BLOG_CODE/view-blog.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -18,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -28,10 +22,8 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Get blog post ID
 $blog_id = $_GET['id'] ?? 0;
 
 if (!$blog_id) {
@@ -39,7 +31,6 @@ if (!$blog_id) {
     exit();
 }
 
-// Fetch blog post details
 $stmt = $conn->prepare("SELECT * FROM blog_posts WHERE id = ?");
 $stmt->bind_param("i", $blog_id);
 $stmt->execute();
@@ -51,21 +42,16 @@ if (!$blog_post) {
     exit();
 }
 
-// Log activity - admin viewed this post
 $auth->logActivity($admin_id, 'viewed_blog_post', 'blog_posts', $blog_id);
 
-// Handle delete
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $admin_role !== 'editor') {
-    // Get image paths before deleting
     $featured_image = $blog_post['featured_image'];
     $thumbnail = $blog_post['thumbnail'];
     
-    // Delete from database
     $stmt = $conn->prepare("DELETE FROM blog_posts WHERE id = ?");
     $stmt->bind_param("i", $blog_id);
     $stmt->execute();
     
-    // Delete image files
     $document_root = $_SERVER['DOCUMENT_ROOT'];
     if ($featured_image) {
         $image_path = $document_root . '/Imar-Group-Website/' . $featured_image;
@@ -76,7 +62,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
         if (file_exists($thumb_path)) @unlink($thumb_path);
     }
     
-    // Log activity
     $auth->logActivity($admin_id, 'deleted_blog_post', 'blog_posts', $blog_id);
     
     header('Location: blog.php?deleted=1');
@@ -371,7 +356,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
     <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
     
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Blog Post Details</h1>
@@ -399,7 +383,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
             <a href="blog.php" class="back-link">&larr; Back to Blog Posts</a>
 
             <div class="blog-card">
-                <!-- Header -->
                 <div class="blog-header">
                     <div class="blog-title">
                         <h2><?php echo htmlspecialchars($blog_post['title']); ?></h2>
@@ -435,7 +418,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                     </span>
                 </div>
 
-                <!-- Badges -->
                 <div class="badge-row">
                     <span class="badge badge-category"><?php echo ucfirst(str_replace('-', ' ', $blog_post['category'])); ?></span>
                     <?php if ($blog_post['is_featured']): ?>
@@ -443,7 +425,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                     <?php endif; ?>
                 </div>
 
-                <!-- Stats -->
                 <div class="info-grid">
                     <div class="info-item">
                         <label>Created</label>
@@ -459,7 +440,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                     </div>
                 </div>
 
-                <!-- Featured Image -->
                 <?php if ($blog_post['featured_image']): ?>
                 <div class="featured-image-section">
                     <img src="../../../Imar-Group-Website/<?php echo htmlspecialchars($blog_post['featured_image']); ?>" 
@@ -468,7 +448,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                 </div>
                 <?php endif; ?>
 
-                <!-- Excerpt -->
                 <?php if ($blog_post['excerpt']): ?>
                 <div class="excerpt-section">
                     <h3>Excerpt</h3>
@@ -476,7 +455,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                 </div>
                 <?php endif; ?>
 
-                <!-- Content -->
                 <div class="content-section">
                     <h3>Full Content</h3>
                     <div class="blog-content">
@@ -484,7 +462,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                     </div>
                 </div>
 
-                <!-- Tags -->
                 <?php if ($blog_post['tags']): ?>
                 <div class="tags-section">
                     <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #6b7280;">Tags</h3>
@@ -499,7 +476,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                 </div>
                 <?php endif; ?>
 
-                <!-- URL Slug Info -->
                 <div style="background: #f9fafb; padding: 15px; border-radius: 8px; margin-top: 20px;">
                     <div style="font-size: 13px; color: #6b7280; margin-bottom: 5px;">URL Slug:</div>
                     <div style="font-size: 14px; color: #4f46e5; font-weight: 500; font-family: monospace;">
@@ -507,7 +483,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_blog']) && $ad
                     </div>
                 </div>
 
-                <!-- Action Buttons -->
                 <div class="action-section">
                     <div class="btn-group">
                         <a href="edit-blog.php?id=<?php echo $blog_post['id']; ?>" class="btn btn-primary">

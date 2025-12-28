@@ -1,14 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Edit Service (FIXED)
- * File: admin/SERVICES_CODE/edit-service.php
- * 
- * FIXES:
- * 1. Proper icon path display using 4-level traversal (../../../../)
- * 2. Consistent path handling with Gallery and Services modules
- * 3. Maintain existing icon if no new upload
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -22,7 +12,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -32,22 +21,18 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);;
 
 $error_message = '';
 $success_message = '';
 
-// FIX: Use capital I in Images to match actual folder structure
 $upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Images/Services/';
-$upload_base_url = 'Images/Services/'; // Database path (capital I)
+$upload_base_url = 'Images/Services/';
 
-// Create directory if it doesn't exist
 if (!file_exists($upload_base_abs)) {
     mkdir($upload_base_abs, 0755, true);
 }
 
-// Get service ID
 $service_id = (int)($_GET['id'] ?? 0);
 
 if (!$service_id) {
@@ -55,7 +40,6 @@ if (!$service_id) {
     exit();
 }
 
-// Fetch existing service
 $stmt = $conn->prepare("SELECT * FROM services WHERE id = ?");
 $stmt->bind_param("i", $service_id);
 $stmt->execute();
@@ -67,7 +51,6 @@ if (!$service) {
     exit();
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $slug = trim($_POST['slug'] ?? '');
@@ -80,13 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $display_order = (int)($_POST['display_order'] ?? 0);
     $status = trim($_POST['status'] ?? 'active');
     
-    // Validation
     if (empty($title)) {
         $error_message = "Title is required.";
     } elseif (empty($short_description)) {
         $error_message = "Short description is required.";
     } else {
-        // Check if slug already exists (excluding current service)
         $stmt = $conn->prepare("SELECT id FROM services WHERE slug = ? AND id != ?");
         $stmt->bind_param("si", $slug, $service_id);
         $stmt->execute();
@@ -94,10 +75,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $slug = $slug . '-' . time();
         }
         
-        // FIX: Keep existing icon by default
         $icon_path = $service['icon_path'];
         
-        // Check if new icon is uploaded
         if (isset($_FILES['icon']) && $_FILES['icon']['error'] !== UPLOAD_ERR_NO_FILE) {
             $file = $_FILES['icon'];
             $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
@@ -108,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($file['size'] > $max_size) {
                 $error_message = "File size exceeds 2MB limit.";
             } else {
-                // Delete old icon if it exists
+
                 if ($service['icon_path']) {
                     $old_icon_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/' . $service['icon_path'];
                     if (file_exists($old_icon_abs)) {
@@ -117,22 +96,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     }
                 }
                 
-                // Ensure directory exists
+
                 if (!file_exists($upload_base_abs)) {
                     mkdir($upload_base_abs, 0755, true);
                 }
                 
-                // Generate unique filename
+
                 $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                 $filename = 'service_' . time() . '_' . uniqid() . '.' . $file_extension;
                 $file_path_abs = $upload_base_abs . $filename;
                 
-                // FIX: Store with capital I (Images/Services/) to match actual folder
+
                 $icon_path = $upload_base_url . $filename;
                 
                 if (!move_uploaded_file($file['tmp_name'], $file_path_abs)) {
                     $error_message = "Failed to upload new icon. Check directory permissions.";
-                    // Revert to old icon on upload failure
+
                     $icon_path = $service['icon_path'];
                 } else {
                     error_log("✓ New icon uploaded: " . $file_path_abs);
@@ -150,14 +129,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Service updated successfully!";
                 
-                // Refresh service data
+
                 $stmt = $conn->prepare("SELECT * FROM services WHERE id = ?");
                 $stmt->bind_param("i", $service_id);
                 $stmt->execute();
                 $result = $stmt->get_result();
                 $service = $result->fetch_assoc();
                 
-                // Add cache clearing and redirect
+
                 echo "<script>
                     // Clear cache
                     if ('caches' in window) {
@@ -262,13 +241,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <form method="POST" enctype="multipart/form-data" id="serviceForm">
             <div class="form-container">
-                <!-- Current Icon Display -->
+
                 <div class="form-group">
                     <label>Current Service Icon</label>
                     <div class="current-icon">
                         <?php if (!empty($service['icon_path'])): ?>
+
                             <?php
-                            // FIX: Use 4-level traversal (../../../../) to match services.php display pattern
                             $icon_display_path = '../../../../Imar-Group-Website/' . htmlspecialchars($service['icon_path']);
                             ?>
                             <img src="<?php echo $icon_display_path; ?>" 
@@ -289,7 +268,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                 </div>
 
-                <!-- Replace Icon -->
+
                 <div class="form-group">
                     <label>Replace Icon (Optional)</label>
                     <div class="icon-upload-area" id="uploadArea">

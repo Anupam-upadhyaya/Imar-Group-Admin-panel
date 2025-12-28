@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - View Inquiry Detail
- * File: admin/view-inquiry.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -18,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -28,10 +22,8 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Get inquiry ID
 $inquiry_id = $_GET['id'] ?? 0;
 
 if (!$inquiry_id) {
@@ -39,7 +31,6 @@ if (!$inquiry_id) {
     exit();
 }
 
-// Handle status update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $new_status = $_POST['status'];
     $admin_notes = $_POST['admin_notes'] ?? '';
@@ -48,25 +39,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_status'])) {
     $stmt->bind_param("ssi", $new_status, $admin_notes, $inquiry_id);
     $stmt->execute();
     
-    // Log activity
     $auth->logActivity($admin_id, 'updated_inquiry_status', 'inquiries', $inquiry_id, "Status changed to: $new_status");
     
     $success_message = "Inquiry updated successfully!";
 }
-// Handle deletion
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_inquiry'])) {
     $stmt = $conn->prepare("DELETE FROM inquiries WHERE id = ?");
     $stmt->bind_param("i", $inquiry_id);
     $stmt->execute();
 
-    // Log activity
     $auth->logActivity($admin_id, 'deleted_inquiry', 'inquiries', $inquiry_id);
 
     header('Location: inquiries.php?deleted=1');
     exit();
 }
 
-// Get inquiry details
 $stmt = $conn->prepare("SELECT * FROM inquiries WHERE id = ?");
 $stmt->bind_param("i", $inquiry_id);
 $stmt->execute();
@@ -78,14 +66,12 @@ if (!$inquiry) {
     exit();
 }
 
-// Mark as read if it's new
-// When fetching the inquiry
 if ($inquiry['status'] === 'new') {
     $stmt = $conn->prepare("UPDATE inquiries SET status = 'reading', read_at = NOW() WHERE id = ?");
     $stmt->bind_param("i", $inquiry_id);
     $stmt->execute();
-    $inquiry['status'] = 'reading'; // update local variable for display
-    // Log activity
+    $inquiry['status'] = 'reading';
+
     $auth->logActivity($admin_id, 'viewed_inquiry', 'inquiries', $inquiry_id);
 }
 ?>
@@ -320,7 +306,6 @@ if ($inquiry['status'] === 'new') {
         <?php endif; ?>
 
         <div class="inquiry-card">
-            <!-- Header -->
             <div class="inquiry-header">
                 <div class="inquiry-title">
                     <h2>Inquiry #<?php echo $inquiry['id']; ?></h2>
@@ -333,7 +318,6 @@ if ($inquiry['status'] === 'new') {
                 </span>
             </div>
 
-            <!-- Customer Info -->
             <div class="info-grid">
                 <div class="info-item">
                     <label>Full Name</label>
@@ -353,7 +337,6 @@ if ($inquiry['status'] === 'new') {
                 </div>
             </div>
 
-            <!-- Message Section -->
             <div class="message-section">
                 <label>Message / Inquiry</label>
                 <div class="message-box">
@@ -361,7 +344,6 @@ if ($inquiry['status'] === 'new') {
                 </div>
             </div>
 
-            <!-- Admin Notes & Update Form -->
             <div class="action-section">
                 <h3 style="margin-bottom: 20px;">Update Inquiry</h3>
                 <form method="POST" action="">
@@ -380,12 +362,10 @@ if ($inquiry['status'] === 'new') {
                     </div>
 
               <div class="btn-group" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-    <!-- Update Form -->
     <form method="POST" action="">
         <button type="submit" name="update_status" class="btn btn-primary">Update Inquiry</button>
     </form>
 
-    <!-- Delete Form -->
     <form method="POST" action="" onsubmit="return confirm('Are you sure you want to delete this inquiry?');">
         <input type="hidden" name="delete_inquiry" value="1">
         <button type="submit" class="btn btn-delete">Delete Inquiry</button>

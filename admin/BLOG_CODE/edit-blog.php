@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Edit Blog Post
- * File: admin/BLOG_CODE/edit-blog.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -18,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -28,24 +22,20 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 
 $error_message = '';
 $success_message = '';
 
-// Define absolute path for file operations
 $document_root = $_SERVER['DOCUMENT_ROOT'];
 $upload_base_abs = $document_root . '/Imar-Group-Website/images/blog/';
 $upload_base_url = 'images/blog/';
 
-// Create directory if it doesn't exist
 if (!file_exists($upload_base_abs)) {
     mkdir($upload_base_abs, 0755, true);
 }
 
-// Get blog post ID
 $blog_id = (int)($_GET['id'] ?? 0);
 
 if (!$blog_id) {
@@ -53,7 +43,6 @@ if (!$blog_id) {
     exit();
 }
 
-// Fetch existing blog post
 $stmt = $conn->prepare("SELECT * FROM blog_posts WHERE id = ?");
 $stmt->bind_param("i", $blog_id);
 $stmt->execute();
@@ -65,7 +54,6 @@ if (!$blog_post) {
     exit();
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $slug = trim($_POST['slug'] ?? '');
@@ -80,7 +68,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $read_time = (int)($_POST['read_time'] ?? 5);
     $published_date = !empty($_POST['published_date']) ? $_POST['published_date'] : date('Y-m-d');
     
-    // Validation
     if (empty($title)) {
         $error_message = "Title is required.";
     } elseif (empty($content)) {
@@ -88,7 +75,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (empty($category)) {
         $error_message = "Category is required.";
     } else {
-        // Check if slug already exists (excluding current post)
         $stmt = $conn->prepare("SELECT id FROM blog_posts WHERE slug = ? AND id != ?");
         $stmt->bind_param("si", $slug, $blog_id);
         $stmt->execute();
@@ -99,7 +85,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $featured_image = $blog_post['featured_image'];
         $thumbnail = $blog_post['thumbnail'];
         
-        // Check if new image is uploaded
         if (isset($_FILES['featured_image']) && $_FILES['featured_image']['error'] !== UPLOAD_ERR_NO_FILE) {
             $file = $_FILES['featured_image'];
             $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
@@ -110,7 +95,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif ($file['size'] > $max_size) {
                 $error_message = "File size exceeds 5MB limit.";
             } else {
-                // Delete old image
                 $document_root = $_SERVER['DOCUMENT_ROOT'];
                 if ($blog_post['featured_image']) {
                     $old_image = $document_root . '/Imar-Group-Website/' . $blog_post['featured_image'];
@@ -131,7 +115,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $featured_image = $upload_base_url . $filename;
                 
                 if (move_uploaded_file($file['tmp_name'], $file_path_abs)) {
-                    // Create thumbnail
                     $thumbnail_filename = 'thumb_' . $filename;
                     if (createThumbnail($file_path_abs, $upload_base_abs, $thumbnail_filename)) {
                         $thumbnail = $upload_base_url . $thumbnail_filename;
@@ -143,7 +126,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         if (empty($error_message)) {
-            // Auto-generate excerpt if empty
             if (empty($excerpt)) {
                 $excerpt = substr(strip_tags($content), 0, 150) . '...';
             }
@@ -156,7 +138,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Blog post updated successfully!";
                 
-                // Refresh blog data
                 $stmt = $conn->prepare("SELECT * FROM blog_posts WHERE id = ?");
                 $stmt->bind_param("i", $blog_id);
                 $stmt->execute();
@@ -171,7 +152,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Thumbnail creation function
 function createThumbnail($source, $dest_dir, $thumbnail_filename) {
     if (!extension_loaded('gd')) return false;
     
@@ -268,7 +248,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
 <div class="dashboard">
    <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <div>
@@ -304,7 +283,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
 
         <form method="POST" enctype="multipart/form-data" id="blogForm">
             <div class="form-container">
-                <!-- Current Featured Image -->
                 <div class="form-group">
                     <label>Current Featured Image</label>
                     <div class="current-image">
@@ -315,7 +293,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
                     </div>
                 </div>
 
-                <!-- Replace Image -->
                 <div class="form-group">
                     <label>Replace Featured Image (Optional)</label>
                     <div class="image-upload-area" id="uploadArea">
@@ -330,34 +307,29 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
                     <div class="helper-text">Leave empty to keep current image</div>
                 </div>
 
-                <!-- Title -->
                 <div class="form-group">
                     <label for="title">Blog Title <span class="required">*</span></label>
                     <input type="text" id="title" name="title" value="<?php echo htmlspecialchars($blog_post['title']); ?>" required>
                 </div>
 
-                <!-- Slug -->
                 <div class="form-group">
                     <label for="slug">URL Slug <span class="required">*</span></label>
                     <input type="text" id="slug" name="slug" value="<?php echo htmlspecialchars($blog_post['slug']); ?>" required>
                     <div class="helper-text">SEO-friendly URL identifier</div>
                 </div>
 
-                <!-- Excerpt -->
                 <div class="form-group">
                     <label for="excerpt">Excerpt/Summary</label>
                     <textarea id="excerpt" name="excerpt" rows="3" maxlength="300"><?php echo htmlspecialchars($blog_post['excerpt']); ?></textarea>
                     <div class="char-count"><span id="excerptCount"><?php echo strlen($blog_post['excerpt']); ?></span>/300 characters</div>
                 </div>
 
-                <!-- Content -->
                 <div class="form-group">
                     <label for="content">Blog Content <span class="required">*</span></label>
                     <textarea id="content" name="content" class="content-editor" required><?php echo htmlspecialchars($blog_post['content']); ?></textarea>
                     <div class="helper-text">You can use HTML tags for formatting</div>
                 </div>
 
-                <!-- Category, Author, Status -->
                 <div class="form-row-three">
                     <div class="form-group">
                         <label for="category">Category <span class="required">*</span></label>
@@ -385,7 +357,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
                     </div>
                 </div>
 
-                <!-- Tags, Read Time, Published Date -->
                 <div class="form-row-three">
                     <div class="form-group">
                         <label for="tags">Tags</label>
@@ -404,7 +375,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
                     </div>
                 </div>
 
-                <!-- Display Order & Featured -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="display_order">Display Order</label>
@@ -420,7 +390,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
                     </div>
                 </div>
 
-                <!-- Stats Display -->
                 <div class="form-row" style="padding: 20px; background: #f9fafb; border-radius: 8px; margin-top: 20px;">
                     <div style="font-size: 14px; color: #6b7280;">
                         <strong>Created:</strong> <?php echo date('M d, Y h:i A', strtotime($blog_post['created_at'])); ?>

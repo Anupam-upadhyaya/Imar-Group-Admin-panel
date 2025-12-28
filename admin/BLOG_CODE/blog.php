@@ -1,13 +1,7 @@
 <?php
-/**
- * IMAR Group Admin Panel - Blog Management with RBAC
- * File: admin/BLOG_CODE/blog.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
-// Use same path structure as gallery.php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
 require_once __DIR__ . '/../includes/avatar-helper.php';
@@ -22,7 +16,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -32,30 +25,26 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
+
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// ✅ RBAC: Handle delete with permission check
+
 if (isset($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
     
-    // Check if user has permission to delete blog posts
     if (!Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)) {
         $error_message = "You don't have permission to delete blog posts.";
     } else {
-        // Get image paths before deleting
         $stmt = $conn->prepare("SELECT featured_image, thumbnail FROM blog_posts WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
         $result = $stmt->get_result();
         
         if ($row = $result->fetch_assoc()) {
-            // Delete from database
             $stmt = $conn->prepare("DELETE FROM blog_posts WHERE id = ?");
             $stmt->bind_param("i", $delete_id);
             
             if ($stmt->execute()) {
-                // Delete image files
                 $document_root = $_SERVER['DOCUMENT_ROOT'];
                 if ($row['featured_image']) {
                     $image_path = $document_root . '/Imar-Group-Website/' . $row['featured_image'];
@@ -66,7 +55,6 @@ if (isset($_GET['delete'])) {
                     if (file_exists($thumb_path)) @unlink($thumb_path);
                 }
                 
-                // Log activity
                 $auth->logActivity($admin_id, 'deleted_blog_post', 'blog_posts', $delete_id);
                 
                 $success_message = "Blog post deleted successfully!";
@@ -79,12 +67,11 @@ if (isset($_GET['delete'])) {
     }
 }
 
-// Get filter and search
+
 $filter_category = $_GET['category'] ?? 'all';
 $filter_status = $_GET['status'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query
 $whereConditions = [];
 $params = [];
 $types = '';
@@ -121,7 +108,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $blog_posts = $result->fetch_all(MYSQLI_ASSOC);
 
-// Get counts for stats
 $stats = [
     'total' => $conn->query("SELECT COUNT(*) as count FROM blog_posts")->fetch_assoc()['count'],
     'published' => $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE status = 'published'")->fetch_assoc()['count'],
@@ -129,7 +115,6 @@ $stats = [
     'views' => $conn->query("SELECT SUM(views) as count FROM blog_posts")->fetch_assoc()['count'] ?? 0
 ];
 
-// Get category counts
 $category_counts = [
     'all' => $stats['total'],
     'tax-planning' => $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE category = 'tax-planning'")->fetch_assoc()['count'],
@@ -138,7 +123,6 @@ $category_counts = [
     'news' => $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE category = 'news'")->fetch_assoc()['count']
 ];
 
-// ✅ RBAC: Check permissions for UI display
 $canDelete = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE);
 $canEdit = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_EDIT);
 $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_CREATE);
@@ -467,7 +451,6 @@ $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissio
 <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Blog Management</h1>
@@ -503,7 +486,6 @@ $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissio
             </div>
         <?php endif; ?>
 
-        <!-- Stats Cards -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-content">
@@ -554,7 +536,6 @@ $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissio
             </div>
         </div>
 
-        <!-- Filters -->
         <div class="search-filter-row">
             <div class="search-box">
                 <form method="GET" action="">
@@ -580,7 +561,6 @@ $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissio
             </select>
         </div>
 
-        <!-- Blog Grid -->
         <?php if (empty($blog_posts)): ?>
             <div class="empty-state">
                 <svg width="80" height="80" viewBox="0 0 24 24" fill="#d1d5db">
@@ -631,7 +611,6 @@ $canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissio
             </div>
         <?php endif; ?>
 
-        <!-- Add New Button -->
         <?php if ($canCreate): ?>
             <a href="add-blog.php" class="add-new-btn" title="Add New Blog Post">+</a>
         <?php endif; ?>

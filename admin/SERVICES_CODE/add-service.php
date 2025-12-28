@@ -1,11 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Add Service (FIXED)
- * File: admin/SERVICES_CODE/add-service.php
- * 
- * FIX: Corrected to store EXACT path like Gallery (Images/Services/ not images/Services/)
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -20,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -30,22 +22,20 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// FIX: Match Gallery pattern exactly - use capital I in Images
 $upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Images/Services/';
-$upload_base_url = 'Images/Services/'; // Database path (capital I to match actual folder)
+$upload_base_url = 'Images/Services/';
 
-// Create directory if it doesn't exist
+
 if (!file_exists($upload_base_abs)) {
     mkdir($upload_base_abs, 0755, true);
 }
 
-// Handle form submission
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $slug = trim($_POST['slug'] ?? '');
@@ -58,18 +48,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $display_order = (int)($_POST['display_order'] ?? 0);
     $status = trim($_POST['status'] ?? 'active');
     
-    // Auto-generate slug if empty
     if (empty($slug)) {
         $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $title), '-'));
     }
     
-    // Validation
+
     if (empty($title)) {
         $error_message = "Title is required.";
     } elseif (empty($short_description)) {
         $error_message = "Short description is required.";
     } else {
-        // Check if slug already exists
         $stmt = $conn->prepare("SELECT id FROM services WHERE slug = ?");
         $stmt->bind_param("s", $slug);
         $stmt->execute();
@@ -79,35 +67,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $icon_path = null;
         
-        // Process icon upload
         if (isset($_FILES['icon']) && $_FILES['icon']['error'] !== UPLOAD_ERR_NO_FILE) {
             $file = $_FILES['icon'];
             $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'];
-            $max_size = 2 * 1024 * 1024; // 2MB
+            $max_size = 5 * 1024 * 1024;
             
             if (!in_array($file['type'], $allowed_types)) {
                 $error_message = "Invalid file type. Only JPG, PNG, GIF, WebP, and SVG are allowed.";
             } elseif ($file['size'] > $max_size) {
-                $error_message = "File size exceeds 2MB limit.";
+                $error_message = "File size exceeds 5MB limit.";
             } else {
-                // Ensure directory exists
                 if (!file_exists($upload_base_abs)) {
                     mkdir($upload_base_abs, 0755, true);
                 }
                 
-                // Generate unique filename
                 $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
                 $filename = 'service_' . time() . '_' . uniqid() . '.' . $file_extension;
                 $file_path_abs = $upload_base_abs . $filename;
                 
-                // FIX: Store with capital I (Images/Services/) to match actual folder
-                $icon_path = $upload_base_url . $filename; // e.g., 'Images/Services/service_123456.png'
+                $icon_path = $upload_base_url . $filename;
                 
                 if (!move_uploaded_file($file['tmp_name'], $file_path_abs)) {
                     $error_message = "Failed to upload icon. Check directory permissions.";
                     $icon_path = null;
                 } else {
-                    // Success - log for debugging
+
                     error_log("✓ Service icon uploaded: " . $file_path_abs);
                     error_log("✓ Database path: " . $icon_path);
                 }
@@ -124,7 +108,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
                 $success_message = "Service created successfully! ID: " . $service_id;
                 
-                // Add cache clearing and redirect (like Gallery)
                 echo "<script>
                     // Clear cache
                     if ('caches' in window) {
@@ -142,7 +125,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $error_message = "Database error: " . $stmt->error;
                 
-                // Delete uploaded file if database insert fails
                 if ($icon_path && file_exists($file_path_abs)) {
                     @unlink($file_path_abs);
                 }
@@ -321,7 +303,7 @@ $suggested_order = $max_order + 1;
 <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
     
-    <!-- MAIN CONTENT -->
+
     <div class="main-content">
         <div class="dashboard-header">
             <div>
@@ -357,21 +339,20 @@ $suggested_order = $max_order + 1;
 
         <form method="POST" enctype="multipart/form-data" id="serviceForm">
             <div class="form-container">
-                <!-- Title -->
                 <div class="form-group">
                     <label for="title">Service Title <span class="required">*</span></label>
                     <input type="text" id="title" name="title" placeholder="e.g., Financial Consulting" required>
                     <div class="helper-text">This will be the main heading for the service</div>
                 </div>
 
-                <!-- Slug -->
+
                 <div class="form-group">
                     <label for="slug">URL Slug</label>
                     <input type="text" id="slug" name="slug" placeholder="auto-generated-from-title">
                     <div class="helper-text">Leave empty to auto-generate from title</div>
                 </div>
 
-                <!-- Icon Upload -->
+
                 <div class="form-group">
                     <label>Service Icon</label>
                     <div class="icon-upload-area" id="uploadArea">
@@ -388,21 +369,21 @@ $suggested_order = $max_order + 1;
                     </div>
                 </div>
 
-                <!-- Short Description -->
+
                 <div class="form-group">
                     <label for="short_description">Short Description <span class="required">*</span></label>
                     <textarea id="short_description" name="short_description" rows="3" placeholder="Brief overview of the service..." required></textarea>
                     <div class="helper-text">This will appear on the service cards (recommended 150-200 characters)</div>
                 </div>
 
-                <!-- Full Content -->
+
                 <div class="form-group">
                     <label for="full_content">Full Service Details</label>
                     <textarea id="full_content" name="full_content" class="content-editor" placeholder="Detailed description of the service..."></textarea>
                     <div class="helper-text">You can use HTML tags for formatting</div>
                 </div>
 
-                <!-- Category, Status, Display Order -->
+
                 <div class="form-row-three">
                     <div class="form-group">
                         <label for="category">Category</label>
@@ -430,7 +411,7 @@ $suggested_order = $max_order + 1;
                     </div>
                 </div>
 
-                <!-- Checkboxes: Featured & Has Offer -->
+
                 <div class="form-row">
                     <div class="form-group">
                         <div class="checkbox-group">
@@ -447,14 +428,14 @@ $suggested_order = $max_order + 1;
                     </div>
                 </div>
 
-                <!-- Offer Text (shown when has_offer is checked) -->
+
                 <div class="form-group" id="offerTextGroup" style="display: none;">
                     <label for="offer_text">Offer Details (Optional)</label>
                     <input type="text" id="offer_text" name="offer_text" placeholder="e.g., 20% off for new clients">
                     <div class="helper-text">Brief description of the offer</div>
                 </div>
 
-                <!-- Buttons -->
+
                 <div class="btn-group">
                     <button type="submit" class="btn btn-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
@@ -470,7 +451,6 @@ $suggested_order = $max_order + 1;
 </div>
 
 <script>
-// Icon upload functionality
 const uploadArea = document.getElementById('uploadArea');
 const iconInput = document.getElementById('iconInput');
 const iconPreview = document.getElementById('iconPreview');
@@ -486,7 +466,6 @@ function displayImagePreview(file) {
         iconPreview.src = e.target.result;
         iconPreview.style.display = 'block';
         
-        // Show upload info
         uploadInfo.style.display = 'block';
         uploadFilename.textContent = file.name;
         uploadSize.textContent = (file.size / 1024).toFixed(2) + ' KB';
@@ -501,7 +480,6 @@ iconInput.addEventListener('change', function(e) {
     }
 });
 
-// Drag and drop
 uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -522,7 +500,6 @@ uploadArea.addEventListener('drop', (e) => {
     }
 });
 
-// Auto-generate slug from title
 document.getElementById('title').addEventListener('input', function() {
     const slug = this.value.toLowerCase()
         .replace(/[^a-z0-9]+/g, '-')
@@ -530,12 +507,10 @@ document.getElementById('title').addEventListener('input', function() {
     document.getElementById('slug').value = slug;
 });
 
-// Show/hide offer text field
 document.getElementById('has_offer').addEventListener('change', function() {
     document.getElementById('offerTextGroup').style.display = this.checked ? 'block' : 'none';
 });
 
-// Form validation
 document.getElementById('serviceForm').addEventListener('submit', function(e) {
     const title = document.getElementById('title').value.trim();
     const shortDesc = document.getElementById('short_description').value.trim();

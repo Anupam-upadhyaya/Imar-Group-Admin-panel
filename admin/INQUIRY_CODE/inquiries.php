@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Inquiries List
- * File: admin/INQUIRY_CODE/inquiries.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -17,7 +12,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -27,14 +21,11 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Get filter from URL
 $filter = $_GET['filter'] ?? 'all';
 $search = $_GET['search'] ?? '';
 
-// Build query based on filter
 $whereConditions = [];
 $params = [];
 $types = '';
@@ -54,7 +45,6 @@ if (!empty($search)) {
 
 $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
 
-// Get inquiries
 $query = "SELECT * FROM inquiries $whereClause ORDER BY created_at DESC";
 $stmt = $conn->prepare($query);
 
@@ -66,7 +56,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $inquiries = $result->fetch_all(MYSQLI_ASSOC);
 
-// Get counts for filter badges
 $counts = [
     'all' => $conn->query("SELECT COUNT(*) as count FROM inquiries")->fetch_assoc()['count'],
     'new' => $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'")->fetch_assoc()['count'],
@@ -259,7 +248,6 @@ $counts = [
    <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <h1>Customer Inquiries</h1>
@@ -283,7 +271,6 @@ $counts = [
             </div>
         </div>
 
-        <!-- Filters and Search -->
         <div class="inquiries-header">
             <div class="filter-tabs">
                 <a href="?filter=all" class="filter-tab <?php echo $filter === 'all' ? 'active' : ''; ?>">
@@ -309,7 +296,6 @@ $counts = [
             </div>
         </div>
 
-        <!-- Inquiries Table -->
         <div class="inquiries-table">
             <?php if (empty($inquiries)): ?>
                 <div class="empty-state">

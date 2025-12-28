@@ -1,11 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Cancel Self-Deletion Request
- * File: admin/cancel-deletion.php
- * 
- * Allows Super Admins to cancel their pending self-deletion requests
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -24,7 +17,7 @@ if (!$auth->isLoggedIn()) {
 
 $currentUser = $auth->getCurrentUser();
 
-// ✅ Only Super Admins can cancel self-deletion
+
 if ($currentUser['role'] !== Permissions::ROLE_SUPER_ADMIN) {
     header('Location: dashboard.php?error=access_denied');
     exit();
@@ -33,7 +26,6 @@ if ($currentUser['role'] !== Permissions::ROLE_SUPER_ADMIN) {
 $error = '';
 $success = '';
 
-// Check for existing deletion request
 $stmt = $conn->prepare("SELECT * FROM user_deletion_requests WHERE user_id = ? AND status = 'pending'");
 $stmt->bind_param("i", $currentUser['id']);
 $stmt->execute();
@@ -48,11 +40,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     $reason = $_POST['reason'] ?? '';
     
-    // Require re-authentication
+
     if (!$access->requireReAuthentication($password)) {
         $error = 'Incorrect password';
     } else {
-        // Cancel the deletion request
         $stmt = $conn->prepare("
             UPDATE user_deletion_requests 
             SET status = 'cancelled', 
@@ -63,7 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stmt->bind_param("si", $reason, $existingRequest['id']);
         
         if ($stmt->execute()) {
-            // Log the action
             $access->logPrivilegedAction(
                 $currentUser['id'], 
                 'cancelled_self_deletion', 
@@ -432,7 +422,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         
-        // Auto-focus on password input
         document.getElementById('password').focus();
     </script>
 </body>

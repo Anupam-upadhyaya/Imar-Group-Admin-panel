@@ -1,56 +1,40 @@
 <?php
-/**
- * IMAR Group Admin Panel - Database Configuration
- * File: config/config.php
- */
-
-// Prevent direct access
 if (!defined('SECURE_ACCESS')) {
     die('Direct access not permitted');
 }
 
-// Environment Configuration
-define('ENVIRONMENT', 'development'); // Change to 'production' when live
+define('ENVIRONMENT', 'development');
 
-// Database Configuration
 define('DB_HOST', 'localhost');
 define('DB_USER', 'root');
-define('DB_PASS', '');  // Your MySQL password
+define('DB_PASS', '');
 define('DB_NAME', 'imar_admin');
 define('DB_CHARSET', 'utf8mb4');
 
-// Site Configuration
 define('SITE_NAME', 'IMAR Group Admin');
 define('SITE_URL', 'http://localhost/Imar_Group_Admin_panel/admin');
 
-// Define BASE_PATH only once
 if (!defined('BASE_PATH')) {
     define('BASE_PATH', dirname(__DIR__));
 }
 
-// Session Configuration
-define('SESSION_LIFETIME', 1800); // 30 minutes in seconds
+define('SESSION_LIFETIME', 1800);
 define('SESSION_NAME', 'IMAR_ADMIN_SESSION');
 
-// Security Configuration
 define('CSRF_TOKEN_NAME', 'csrf_token');
 define('MAX_LOGIN_ATTEMPTS', 5);
-define('LOGIN_LOCKOUT_TIME', 900); // 15 minutes in seconds
+define('LOGIN_LOCKOUT_TIME', 900);
 
-// File Upload Configuration
-define('BASE_URL', '/'); // Adjust if site in subfolder on production
+define('BASE_URL', '/');
 
 define('UPLOAD_PATH', BASE_PATH . '/uploads/');
 define('GALLERY_PATH', UPLOAD_PATH . 'gallery/');
 define('BLOG_PATH', UPLOAD_PATH . 'blog/');
 
-define('MAX_FILE_SIZE', 5 * 1024 * 1024); // 5MB
+define('MAX_FILE_SIZE', 5 * 1024 * 1024);
 define('ALLOWED_IMAGE_TYPES', ['image/jpeg','image/png','image/gif','image/webp']);
-
-// Pagination
 define('ITEMS_PER_PAGE', 20);
 
-// Error Reporting (Turn off in production)
 if (ENVIRONMENT === 'development') {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
@@ -62,10 +46,7 @@ if (ENVIRONMENT === 'development') {
     ini_set('error_log', BASE_PATH . '/logs/error.log');
 }
 
-// Timezone
 date_default_timezone_set('Asia/Kathmandu');
-
-// Database Connection Class
 class Database {
     private static $instance = null;
     private $conn;
@@ -100,20 +81,16 @@ class Database {
         return $this->conn;
     }
     
-    // Prevent cloning
     private function __clone() {}
     
-    // Prevent unserialization
     public function __wakeup() {
         throw new Exception("Cannot unserialize singleton");
     }
 }
 
-// Initialize database connection
 $db = Database::getInstance();
 $conn = $db->getConnection();
 
-// Legacy compatibility: Create simple connection variables for older code
 $servername = DB_HOST;
 $username = DB_USER;
 $password = DB_PASS;

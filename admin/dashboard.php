@@ -1,13 +1,5 @@
 <?php
-/**
- * IMAR Group Admin Panel - Dashboard with RBAC
- * File: admin/dashboard.php
- */
-
-// Start secure session
 session_start();
-
-// Security constant
 define('SECURE_ACCESS', true);
 
 // Include configuration and classes
@@ -17,17 +9,14 @@ require_once '../includes/classes/AccessControl.php';
 require_once '../includes/classes/Permissions.php';
 require_once 'includes/avatar-helper.php';
 
-// Initialize Auth and Access Control
 $auth = new Auth($conn);
 $access = new AccessControl($conn);
 
-// Check if user is logged in
 if (!$auth->isLoggedIn()) {
     header('Location: login.php');
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -37,29 +26,22 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// Fetch dashboard statistics
 $stats = [];
 
-// New inquiries count
 $result = $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'");
 $stats['new_inquiries'] = $result->fetch_assoc()['count'] ?? 0;
 
-// Total gallery images
 $result = $conn->query("SELECT COUNT(*) as count FROM gallery WHERE status = 'active'");
 $stats['gallery_count'] = $result->fetch_assoc()['count'] ?? 0;
 
-// Published blog posts
 $result = $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE status = 'published'");
 $stats['blog_count'] = $result->fetch_assoc()['count'] ?? 0;
 
-// Total admin users
 $result = $conn->query("SELECT COUNT(*) as count FROM admin_users WHERE status = 'active'");
 $stats['admin_count'] = $result->fetch_assoc()['count'] ?? 0;
 
-// Recent inquiries
 $recent_inquiries = [];
 $result = $conn->query("
     SELECT 
@@ -77,7 +59,6 @@ while ($row = $result->fetch_assoc()) {
     $recent_inquiries[] = $row;
 }
 
-// Recent activities
 $recent_activities = [];
 $result = $conn->query("
     SELECT al.action, al.table_affected, al.created_at, a.name as full_name, a.avatar
@@ -90,7 +71,6 @@ while ($row = $result->fetch_assoc()) {
     $recent_activities[] = $row;
 }
 
-// Get greeting based on time
 $hour = date('H');
 if ($hour < 12) {
     $greeting = 'Good Morning';
@@ -100,7 +80,6 @@ if ($hour < 12) {
     $greeting = 'Good Evening';
 }
 
-// Fetch notification counts for sidebar
 $new_inquiries_count = $stats['new_inquiries'];
 ?>
 <!DOCTYPE html>
@@ -112,7 +91,7 @@ $new_inquiries_count = $stats['new_inquiries'];
     <link rel="stylesheet" href="../css/styles.css">
     <link rel="stylesheet" href="../css/dashboard.css">
     <style>
-        /* Avatar styles for header */
+
         .user-avatar {
             width: 40px;
             height: 40px;
@@ -133,7 +112,6 @@ $new_inquiries_count = $stats['new_inquiries'];
             object-fit: cover;
         }
         
-        /* Avatar styles for activity feed */
         .activity-icon {
             width: 40px;
             height: 40px;
@@ -159,12 +137,9 @@ $new_inquiries_count = $stats['new_inquiries'];
 <body>
 
 <div class="dashboard">
-    <!-- ✅ REUSABLE SIDEBAR MODULE -->
-    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
-    <!-- MAIN CONTENT -->
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
     <div class="main-content">
-        <!-- Header -->
         <div class="dashboard-header">
             <h1>Dashboard</h1>
             <div class="header-actions">
@@ -187,13 +162,11 @@ $new_inquiries_count = $stats['new_inquiries'];
             </div>
         </div>
 
-        <!-- Welcome Banner -->
         <div class="welcome-banner">
             <h2><?php echo $greeting; ?>, <?php echo htmlspecialchars(explode(' ', $admin_name)[0]); ?>! 👋</h2>
             <p>Here's what's happening with your projects today.</p>
         </div>
 
-        <!-- Quick Actions -->
         <div class="quick-actions">
             <a href="/Imar_Group_Admin_panel/admin/INQUIRY_CODE/inquiries.php" class="quick-action-btn">
                 <svg viewBox="0 0 24 24">
@@ -214,7 +187,6 @@ $new_inquiries_count = $stats['new_inquiries'];
                 <span>Create Blog</span>
             </a>
             
-            <!-- ✅ RBAC: Show "Add User" only for Super Admin and Admin -->
             <?php if (Permissions::canAccessUserManagement($admin_role)): ?>
                 <a href="/Imar_Group_Admin_panel/admin/users.php" class="quick-action-btn">
                     <svg viewBox="0 0 24 24">
@@ -225,7 +197,6 @@ $new_inquiries_count = $stats['new_inquiries'];
             <?php endif; ?>
         </div>
 
-        <!-- Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
                 <div class="stat-content">
@@ -305,9 +276,7 @@ $new_inquiries_count = $stats['new_inquiries'];
             </div>
         </div>
 
-        <!-- Content Grid -->
         <div class="two-column-grid">
-            <!-- Recent Inquiries -->
             <div class="content-card">
                 <div class="content-card-header">
                     <h2>Recent Inquiries</h2>
@@ -350,7 +319,6 @@ $new_inquiries_count = $stats['new_inquiries'];
                 <?php endif; ?>
             </div>
 
-            <!-- Recent Activities -->
             <div class="content-card">
                 <div class="content-card-header">
                     <h2>Recent Activities</h2>

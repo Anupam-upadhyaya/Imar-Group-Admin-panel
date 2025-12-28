@@ -1,20 +1,4 @@
 <?php
-/**
- * FILE 1: admin/forgot-password.php
- * Handles password reset requests
- * 
- * FOLDER STRUCTURE:
- * Imar_Group_Admin_panel/
- *   ├── admin/
- *   │   ├── forgot-password.php (THIS FILE)
- *   │   └── ajax/
- *   │       └── forgot-password-handler.php
- *   └── config/
- *       └── config.php
- */
-
-// No need for config.php here since this is just the HTML form
-// The AJAX handler will handle the backend logic
 ?>
 <!DOCTYPE html>
 <html lang="en">

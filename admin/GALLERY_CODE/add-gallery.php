@@ -13,7 +13,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -23,18 +22,15 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// Define paths - Production safe
 $document_root = $_SERVER['DOCUMENT_ROOT'];
-$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Gallery/'; // Absolute path for file operations
-$upload_base_url = 'Gallery/'; // Relative URL for database storage
+$upload_base_abs = dirname(dirname(dirname(__DIR__))) . '/Imar-Group-Website/Gallery/';
+$upload_base_url = 'Gallery/';
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
@@ -44,69 +40,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $display_order = (int)($_POST['display_order'] ?? 0);
     $status = trim($_POST['status'] ?? 'active');
     
-    // Validate status value
     if (!in_array($status, ['active', 'inactive', 'pending'])) {
         $status = 'active';
     }
     
-    // Validation
     if (empty($title)) {
         $error_message = "Title is required.";
     } elseif (!isset($_FILES['image']) || $_FILES['image']['error'] === UPLOAD_ERR_NO_FILE) {
         $error_message = "Please select an image to upload.";
     } else {
-        // Process image upload
         $file = $_FILES['image'];
         $allowed_types = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-        $max_size = 5 * 1024 * 1024; // 5MB
+        $max_size = 5 * 1024 * 1024;
         
         if (!in_array($file['type'], $allowed_types)) {
             $error_message = "Invalid file type. Only JPG, PNG, GIF, and WebP images are allowed.";
         } elseif ($file['size'] > $max_size) {
             $error_message = "File size exceeds 5MB limit.";
         } else {
-            // Create category folder path
             $category_folder = strtoupper($category);
             $upload_dir_abs = $upload_base_abs . $category_folder . '/';
-            
-            // Create directory if it doesn't exist
             if (!file_exists($upload_dir_abs)) {
                 mkdir($upload_dir_abs, 0755, true);
             }
-            
-            // Generate unique filename
+    
             $file_extension = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
             $filename = 'gallery_' . time() . '_' . uniqid() . '.' . $file_extension;
             $file_path_abs = $upload_dir_abs . $filename;
             
-            // Relative path for database (URL path)
             $db_path = $upload_base_url . $category_folder . '/' . $filename;
             
             if (move_uploaded_file($file['tmp_name'], $file_path_abs)) {
-                // Get image dimensions
                 list($img_width, $img_height) = getimagesize($file_path_abs);
                 
-                // Auto-calculate size class based on image dimensions
                 $size_class = calculateSizeClass($img_width, $img_height);
                 
-                // Create thumbnail
                 $thumbnail_filename = 'thumb_' . $filename;
                 $thumbnail_created = createThumbnail($file_path_abs, $upload_dir_abs, $thumbnail_filename);
                 $db_thumbnail = $thumbnail_created ? $upload_base_url . $category_folder . '/' . $thumbnail_filename : null;
                 
-                // Insert into database
                 $stmt = $conn->prepare("INSERT INTO gallery (title, description, image_path, thumbnail_path, category, size_class, is_featured, display_order, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
                 $stmt->bind_param("ssssssiiis", $title, $description, $db_path, $db_thumbnail, $category, $size_class, $is_featured, $display_order, $status, $admin_id);
                 
                 if ($stmt->execute()) {
                     $gallery_id = $stmt->insert_id;
                     
-                    // Log activity
                     $auth->logActivity($admin_id, 'added_gallery_item', 'gallery', $gallery_id);
                     
                     $success_message = "Gallery item added successfully! ID: " . $gallery_id;
                     
-                    // Add JavaScript to clear cache and redirect
                     echo "<script>
                         // Clear gallery cache
                         if ('caches' in window) {
@@ -123,7 +105,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </script>";
                 } else {
                     $error_message = "Database error: " . $stmt->error;
-                    // Delete uploaded file if database insert fails
                     if (file_exists($file_path_abs)) {
                         unlink($file_path_abs);
                     }
@@ -138,28 +119,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Function to automatically calculate size class based on image dimensions
 function calculateSizeClass($width, $height) {
     $aspect_ratio = $width / $height;
-    
-    // Portrait (taller than wide)
+
     if ($aspect_ratio < 0.75) {
         return 'tall'; // 1x2
     }
-    // Landscape (wider than tall)
     elseif ($aspect_ratio > 1.5) {
         return 'wide'; // 2x1
     }
-    // Square or near-square - vary randomly for visual interest
     else {
-        // 30% chance to make it large (2x2) for visual variety
         return (rand(1, 10) <= 3) ? 'large' : 'normal';
     }
 }
 
-// Function to create thumbnail
 function createThumbnail($source, $dest_dir, $thumbnail_filename) {
-    // Check if GD library is available
     if (!extension_loaded('gd')) {
         return false;
     }
@@ -174,12 +148,10 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
     
     list($width, $height, $type) = $image_info;
     
-    // Calculate new dimensions
     $ratio = min($max_width / $width, $max_height / $height);
     $new_width = round($width * $ratio);
     $new_height = round($height * $ratio);
     
-    // Create image from source
     $src_image = false;
     switch ($type) {
         case IMAGETYPE_JPEG:
@@ -202,10 +174,8 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
         return false;
     }
     
-    // Create thumbnail
     $thumb = imagecreatetruecolor($new_width, $new_height);
     
-    // Preserve transparency for PNG and GIF
     if ($type == IMAGETYPE_PNG || $type == IMAGETYPE_GIF) {
         imagealphablending($thumb, false);
         imagesavealpha($thumb, true);
@@ -217,7 +187,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
     
     $thumb_path = $dest_dir . $thumbnail_filename;
     
-    // Save thumbnail
     $saved = false;
     switch ($type) {
         case IMAGETYPE_JPEG:
@@ -242,7 +211,6 @@ function createThumbnail($source, $dest_dir, $thumbnail_filename) {
     return $saved;
 }
 
-// Get max display order for suggestion
 $max_order_result = $conn->query("SELECT MAX(display_order) as max_order FROM gallery");
 $max_order = $max_order_result->fetch_assoc()['max_order'] ?? 0;
 $suggested_order = $max_order + 1;
@@ -418,7 +386,6 @@ $suggested_order = $max_order + 1;
     <div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
     
-    <!-- MAIN CONTENT -->
     <div class="main-content">
         <div class="dashboard-header">
             <div>
@@ -458,7 +425,7 @@ $suggested_order = $max_order + 1;
 
         <form method="POST" enctype="multipart/form-data" id="galleryForm">
             <div class="form-container">
-                <!-- Image Upload -->
+
                 <div class="form-group">
                     <label>Image <span class="required">*</span></label>
                     <div class="image-upload-area" id="uploadArea">
@@ -472,21 +439,19 @@ $suggested_order = $max_order + 1;
                     <img id="imagePreview" class="image-preview" alt="Preview">
                 </div>
 
-                <!-- Title -->
+
                 <div class="form-group">
                     <label for="title">Title <span class="required">*</span></label>
                     <input type="text" id="title" name="title" placeholder="e.g., Annual Financial Summit" required>
                     <div class="helper-text">This will be displayed when users hover over the image</div>
                 </div>
 
-                <!-- Description -->
                 <div class="form-group">
                     <label for="description">Description</label>
                     <textarea id="description" name="description" placeholder="Enter a brief description..."></textarea>
                     <div class="helper-text">Optional additional context about the image</div>
                 </div>
 
-                <!-- Category and Size Class -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="category">Category <span class="required">*</span></label>
@@ -511,7 +476,6 @@ $suggested_order = $max_order + 1;
                     </div>
                 </div>
 
-                <!-- Display Order and Status -->
                 <div class="form-row">
                     <div class="form-group">
                         <label for="display_order">Display Order</label>
@@ -529,7 +493,6 @@ $suggested_order = $max_order + 1;
                     </div>
                 </div>
 
-                <!-- Featured Checkbox -->
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="is_featured" name="is_featured">
@@ -538,7 +501,6 @@ $suggested_order = $max_order + 1;
                     <div class="helper-text">Featured items appear in the carousel at the top</div>
                 </div>
 
-                <!-- Buttons -->
                 <div class="btn-group">
                     <button type="submit" class="btn btn-primary">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: middle; margin-right: 5px;">
@@ -554,7 +516,6 @@ $suggested_order = $max_order + 1;
 </div>
 
 <script>
-// Image upload functionality
 const uploadArea = document.getElementById('uploadArea');
 const imageInput = document.getElementById('imageInput');
 const imagePreview = document.getElementById('imagePreview');
@@ -573,7 +534,6 @@ imageInput.addEventListener('change', function(e) {
     }
 });
 
-// Drag and drop
 uploadArea.addEventListener('dragover', (e) => {
     e.preventDefault();
     uploadArea.classList.add('dragover');
@@ -600,7 +560,6 @@ uploadArea.addEventListener('drop', (e) => {
     }
 });
 
-// Auto-generate title from filename
 imageInput.addEventListener('change', function(e) {
     const titleInput = document.getElementById('title');
     if (!titleInput.value && e.target.files[0]) {
@@ -613,7 +572,6 @@ imageInput.addEventListener('change', function(e) {
     }
 });
 
-// Form validation
 document.getElementById('galleryForm').addEventListener('submit', function(e) {
     const title = document.getElementById('title').value.trim();
     const image = imageInput.files[0];

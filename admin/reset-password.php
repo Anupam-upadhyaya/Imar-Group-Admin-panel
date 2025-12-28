@@ -1,20 +1,7 @@
 <?php
-/**
- * FILE: admin/reset-password.php
- * Password reset form
- * 
- * FOLDER STRUCTURE:
- * Imar_Group_Admin_panel/
- *   ├── admin/
- *   │   └── reset-password.php (THIS FILE)
- *   └── config/
- *       └── config.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
-// Correct path: Go up 1 level from admin/ to reach config/
 require_once __DIR__ . '/../config/config.php';
 
 $token = $_GET['token'] ?? '';
@@ -23,7 +10,6 @@ $success_message = '';
 $token_valid = false;
 $user = null;
 
-// Verify token
 if (empty($token)) {
     $error_message = "Invalid reset link.";
 } else {
@@ -40,7 +26,6 @@ if (empty($token)) {
     }
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_valid) {
     $new_password = $_POST['new_password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
@@ -52,19 +37,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $token_valid) {
     } elseif ($new_password !== $confirm_password) {
         $error_message = "Passwords do not match.";
     } else {
-        // Update password
         $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
         $stmt = $conn->prepare("UPDATE admin_users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE id = ?");
         $stmt->bind_param("si", $hashed_password, $user['id']);
         
         if ($stmt->execute()) {
-            // Mark token as used if table exists
             try {
                 $stmt = $conn->prepare("UPDATE password_reset_requests SET status = 'used', used_at = NOW() WHERE token = ?");
                 $stmt->bind_param("s", $token);
                 $stmt->execute();
             } catch (Exception $e) {
-                // Table might not exist, that's okay
             }
             
             $success_message = "Password reset successful! Redirecting to login...";
@@ -293,7 +275,6 @@ function togglePassword(inputId, button) {
     }
 }
 
-// Form validation
 document.getElementById('resetForm')?.addEventListener('submit', function(e) {
     const newPassword = document.getElementById('new_password').value;
     const confirmPassword = document.getElementById('confirm_password').value;

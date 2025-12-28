@@ -1,42 +1,31 @@
 <?php
-/**
- * IMAR Group Admin Panel - Sidebar Module
- * File: admin/includes/sidebar.php
- * Works from any location in the admin panel
- */
-
-// Initialize AccessControl if not already done
 if (!isset($access)) {
     require_once __DIR__ . '/../../includes/classes/AccessControl.php';
     require_once __DIR__ . '/../../includes/classes/Permissions.php';
     $access = new AccessControl($conn);
 }
 
-// Get current role safely
 $currentRole = $access->getCurrentRole();
 
-// Determine the base path based on current file location
 $current_path = $_SERVER['PHP_SELF'];
 $base_url = '/Imar_Group_Admin_panel/admin';
 
-// Determine correct asset path based on current location
 if (strpos($current_path, '/admin/') !== false && 
     (strpos($current_path, 'BLOG_CODE') !== false || 
      strpos($current_path, 'GALLERY_CODE') !== false || 
      strpos($current_path, 'INQUIRY_CODE') !== false || 
      strpos($current_path, 'SERVICES_CODE') !== false || 
      strpos($current_path, 'VIDEOS_CODE') !== false)) {
-    // We're in a subfolder
+
     $logo_path = '../../assets/logo.png';
 } else {
-    // We're in the main admin folder
+
     $logo_path = '../assets/logo.png';
 }
 
-// Fetch notification counts for sidebar
 $new_inquiries_count = $conn->query("SELECT COUNT(*) as count FROM inquiries WHERE status = 'new'")->fetch_assoc()['count'] ?? 0;
 ?>
-<!-- SIDEBAR -->
+
 <div class="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
@@ -90,7 +79,6 @@ $new_inquiries_count = $conn->query("SELECT COUNT(*) as count FROM inquiries WHE
             <span>Services</span>
         </a>
         
-        <!-- Show Users menu only to Super Admin and Admin -->
         <?php if (Permissions::canAccessUserManagement($currentRole)): ?>
             <a href="<?php echo $base_url; ?>/users.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'users.php' ? 'active' : ''; ?>">
                 <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>

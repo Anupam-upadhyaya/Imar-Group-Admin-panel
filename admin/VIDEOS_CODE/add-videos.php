@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Add Video
- * File: admin/VIDEOS_CODE/add-video.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -17,7 +12,6 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -27,20 +21,18 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// Function to extract YouTube ID from various URL formats
 function extractYouTubeId($url) {
     $patterns = [
-        '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/',      // Standard URL
-        '/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/',        // Embed URL
-        '/youtu\.be\/([a-zA-Z0-9_-]+)/',                  // Shortened URL
-        '/youtube\.com\/v\/([a-zA-Z0-9_-]+)/',            // V URL
-        '/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/'        // Shorts URL
+        '/youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/',    
+        '/youtube\.com\/embed\/([a-zA-Z0-9_-]+)/',        
+        '/youtu\.be\/([a-zA-Z0-9_-]+)/',                  
+        '/youtube\.com\/v\/([a-zA-Z0-9_-]+)/',           
+        '/youtube\.com\/shorts\/([a-zA-Z0-9_-]+)/'       
     ];
     
     foreach ($patterns as $pattern) {
@@ -56,7 +48,6 @@ function extractYouTubeId($url) {
     return false;
 }
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $title = trim($_POST['title'] ?? '');
     $youtube_url = trim($_POST['youtube_url'] ?? '');
@@ -64,7 +55,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $status = $_POST['status'] ?? 'active';
     $display_order = (int)($_POST['display_order'] ?? 0);
     
-    // Validation
     if (empty($title)) {
         $error_message = "Video title is required.";
     } elseif (empty($youtube_url)) {
@@ -75,11 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$youtube_id) {
             $error_message = "Invalid YouTube URL. Please provide a valid YouTube video link.";
         } else {
-            // Generate thumbnail URL
             $thumbnail_url = "https://img.youtube.com/vi/{$youtube_id}/maxresdefault.jpg";
             
-            // Insert into database (Matches your SCHEMA)
-            // Columns: title, youtube_url, youtube_id, thumbnail_url, duration, status, display_order, created_by
+
             $stmt = $conn->prepare("INSERT INTO videos (title, youtube_url, youtube_id, thumbnail_url, duration, status, display_order, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             $stmt->bind_param("ssssssii", $title, $youtube_url, $youtube_id, $thumbnail_url, $duration, $status, $display_order, $admin_id);
             
@@ -381,9 +369,7 @@ $suggested_order = $max_order + 1;
 </div>
 
 <script>
-/**
- * Utility to extract ID from YouTube URLs
- */
+
 function extractYouTubeId(url) {
     const patterns = [
         /youtube\.com\/watch\?v=([a-zA-Z0-9_-]+)/,
@@ -398,15 +384,13 @@ function extractYouTubeId(url) {
         if (match && match[1]) return match[1];
     }
     
-    // Check if user just entered the 11-char ID
+
     if (/^[a-zA-Z0-9_-]{11}$/.test(url)) return url;
     
     return null;
 }
 
-/**
- * Handle Live Preview logic
- */
+
 const urlInput = document.getElementById('youtube_url');
 const videoPreview = document.getElementById('videoPreview');
 const emptyPreview = document.getElementById('emptyPreview');

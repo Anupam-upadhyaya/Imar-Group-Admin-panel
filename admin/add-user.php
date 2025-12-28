@@ -1,9 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Add User with RBAC
- * File: admin/add-user.php
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -21,13 +16,11 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// ✅ RBAC: Only Super Admin and Admin can access user management
 if (!Permissions::canAccessUserManagement($access->getCurrentRole())) {
     header('Location: dashboard.php?error=access_denied');
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -37,25 +30,21 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// ✅ RBAC: Get allowed roles based on current user's role
 function getAllowedRoles($currentRole) {
     $allowedRoles = [];
     
     if ($currentRole === Permissions::ROLE_SUPER_ADMIN) {
-        // Super Admin can create: Super Admin, Admin, Editor
         $allowedRoles = [
             Permissions::ROLE_SUPER_ADMIN => 'Super Admin',
             Permissions::ROLE_ADMIN => 'Admin',
             Permissions::ROLE_EDITOR => 'Editor'
         ];
     } elseif ($currentRole === Permissions::ROLE_ADMIN) {
-        // Admin can only create: Admin and Editor (NOT Super Admin)
         $allowedRoles = [
             Permissions::ROLE_ADMIN => 'Admin',
             Permissions::ROLE_EDITOR => 'Editor'
@@ -67,7 +56,6 @@ function getAllowedRoles($currentRole) {
 
 $allowedRoles = getAllowedRoles($admin_role);
 
-// Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name'] ?? '');
     $email = trim($_POST['email'] ?? '');
@@ -77,15 +65,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $dob = trim($_POST['dob'] ?? '');
     $status = trim($_POST['status'] ?? 'active');
     
-    // ✅ RBAC: Validate role assignment
     if (!array_key_exists($role, $allowedRoles)) {
         $error_message = "You don't have permission to create users with role: " . ucwords(str_replace('_', ' ', $role));
     } 
-    // ✅ RBAC: Additional check using Permissions class
+
     elseif (!Permissions::canManageUser($admin_role, $role, Permissions::ACTION_CREATE)) {
         $error_message = "You cannot create users with role: " . ucwords(str_replace('_', ' ', $role));
     }
-    // Validation
+
     elseif (empty($name)) {
         $error_message = "Name is required.";
     } elseif (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -99,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (!in_array($role, array_keys($allowedRoles))) {
         $error_message = "Invalid role selected.";
     } else {
-        // Check if email already exists
+
         $stmt = $conn->prepare("SELECT id FROM admin_users WHERE email = ?");
         $stmt->bind_param("s", $email);
         $stmt->execute();
@@ -107,13 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($stmt->get_result()->num_rows > 0) {
             $error_message = "Email already exists.";
         } else {
-            // Handle avatar upload
             $avatar_filename = null;
             
             if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
                 $upload_dir = __DIR__ . '/../uploads/avatars/';
                 
-                // Create directory if it doesn't exist
                 if (!file_exists($upload_dir)) {
                     mkdir($upload_dir, 0755, true);
                 }
@@ -123,28 +108,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $file_size = $_FILES['avatar']['size'];
                 $file_type = $_FILES['avatar']['type'];
                 
-                // Get file extension
                 $file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
                 
-                // Allowed extensions
                 $allowed_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-                
-                // Validate file
+
                 if (!in_array($file_ext, $allowed_extensions)) {
                     $error_message = "Invalid file type. Only JPG, JPEG, PNG, GIF, and WEBP are allowed.";
                 } elseif ($file_size > 5242880) { // 5MB max
                     $error_message = "File size must be less than 5MB.";
                 } else {
-                    // Verify it's actually an image
+
                     $image_info = getimagesize($file_tmp);
                     if ($image_info === false) {
                         $error_message = "File is not a valid image.";
                     } else {
-                        // Generate unique filename
+
                         $avatar_filename = 'avatar_' . uniqid() . '_' . time() . '.' . $file_ext;
                         $upload_path = $upload_dir . $avatar_filename;
                         
-                        // Move uploaded file
                         if (!move_uploaded_file($file_tmp, $upload_path)) {
                             $error_message = "Failed to upload avatar image.";
                             $avatar_filename = null;
@@ -153,19 +134,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
             
-            // If no errors, insert user
             if (empty($error_message)) {
-                // Hash password
+
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 
-                // Insert user
                 $stmt = $conn->prepare("INSERT INTO admin_users (name, email, password, role, dob, status, avatar) VALUES (?, ?, ?, ?, ?, ?, ?)");
                 $stmt->bind_param("sssssss", $name, $email, $hashed_password, $role, $dob, $status, $avatar_filename);
                 
                 if ($stmt->execute()) {
                     $new_user_id = $stmt->insert_id;
                     
-                    // ✅ RBAC: Log the privileged action
+
                     $roleLabel = ucwords(str_replace('_', ' ', $role));
                     $access->logPrivilegedAction(
                         $admin_id, 
@@ -181,7 +160,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } else {
                     $error_message = "Database error: " . $stmt->error;
                     
-                    // Delete uploaded file if database insert failed
                     if ($avatar_filename && file_exists($upload_dir . $avatar_filename)) {
                         unlink($upload_dir . $avatar_filename);
                     }

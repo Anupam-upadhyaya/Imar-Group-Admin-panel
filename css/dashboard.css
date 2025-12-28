@@ -3,14 +3,8 @@
    File: css/dashboard.css
 ============================= */
 
-/* Import Google Fonts */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-/* =============================
-   DASHBOARD SPECIFIC STYLES
-============================= */
-
-/* Welcome Banner */
 .welcome-banner {
     background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
     color: white;
@@ -31,7 +25,6 @@
     opacity: 0.9;
 }
 
-/* Stats Grid Enhancement */
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -124,7 +117,6 @@
     height: 28px;
 }
 
-/* Content Cards */
 .content-card {
     background: white;
     padding: 24px;
@@ -161,7 +153,6 @@
     text-decoration: underline;
 }
 
-/* Inquiry Item */
 .inquiry-item {
     padding: 16px 0;
     border-bottom: 1px solid #e5e7eb;
@@ -237,7 +228,6 @@
     fill: currentColor;
 }
 
-/* Activity Item */
 .activity-item {
     padding: 14px 0;
     border-bottom: 1px solid #e5e7eb;
@@ -322,7 +312,6 @@
     color: #9ca3af;
 }
 
-/* Quick Actions */
 .quick-actions {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -358,7 +347,6 @@
     fill: #4f46e5;
 }
 
-/* Two Column Layout */
 .two-column-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -366,7 +354,6 @@
     margin-top: 30px;
 }
 
-/* Chart Container */
 .chart-container {
     background: white;
     padding: 24px;
@@ -382,7 +369,6 @@
     color: #0f172a;
 }
 
-/* Loading State */
 .loading-state {
     display: flex;
     align-items: center;
@@ -405,7 +391,6 @@
     }
 }
 
-/* Responsive Design */
 @media (max-width: 1024px) {
     .two-column-grid {
         grid-template-columns: 1fr;
@@ -455,7 +440,6 @@
     }
 }
 
-/* Print Styles */
 @media print {
 
     .sidebar,
@@ -478,16 +462,13 @@
 
 .btn-delete {
     background-color: #dc2626 !important;
-    /* red */
     color: white !important;
 }
 
 .btn-delete:hover {
     background-color: #b91c1c !important;
-    /* darker red */
 }
 
-/* Button group spacing */
 .btn-group {
     display: flex;
     gap: 10px;

@@ -1,12 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - RBAC Permission System
- * File: includes/classes/Permissions.php
- * 
- * Strict Role-Based Access Control Engine
- * Enforces least privilege and explicit permission checking
- */
-
 if (!defined('SECURE_ACCESS')) {
     die('Direct access not permitted');
 }
@@ -34,16 +26,13 @@ class Permissions {
     const RESOURCE_VIDEO = 'video';
     const RESOURCE_INQUIRY = 'inquiry';
     
-    /**
-     * Complete permission matrix
-     * Structure: [role][resource][action] = boolean
-     */
+
     private static $permissions = [
         self::ROLE_SUPER_ADMIN => [
             self::RESOURCE_USER => [
                 self::ACTION_CREATE => true,  // Can create Admin and Editor
                 self::ACTION_EDIT => true,    // Can edit Admin and Editor
-                self::ACTION_DELETE => true,  // Can delete Admin and Editor (with re-auth)
+                self::ACTION_DELETE => true,  // Can delete Admin and Editor (with re-au
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_CONTENT => [
@@ -133,47 +122,47 @@ class Permissions {
         
         self::ROLE_EDITOR => [
             self::RESOURCE_USER => [
-                self::ACTION_CREATE => false,  // ✅ Cannot create any users
-                self::ACTION_EDIT => false,    // ✅ Cannot edit users
-                self::ACTION_DELETE => false,  // ✅ Cannot delete users
-                self::ACTION_VIEW => false     // ✅ No user management access
+                self::ACTION_CREATE => false,
+                self::ACTION_EDIT => false, 
+                self::ACTION_DELETE => false,
+                self::ACTION_VIEW => false  
             ],
             self::RESOURCE_CONTENT => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE CONTENT
-                self::ACTION_PUBLISH => true,  // ✅ NOW CAN PUBLISH CONTENT
+                self::ACTION_DELETE => true,   
+                self::ACTION_PUBLISH => true,  
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_BLOG => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE BLOG POSTS
-                self::ACTION_PUBLISH => true,  // ✅ NOW CAN PUBLISH BLOG POSTS
+                self::ACTION_DELETE => true,
+                self::ACTION_PUBLISH => true,  
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_GALLERY => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE GALLERY ITEMS
+                self::ACTION_DELETE => true, 
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_SERVICE => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE SERVICES
+                self::ACTION_DELETE => true, 
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_VIDEO => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE VIDEOS
+                self::ACTION_DELETE => true,
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_INQUIRY => [
                 self::ACTION_VIEW => true,
-                self::ACTION_EDIT => true,     // Can update status
-                self::ACTION_DELETE => true    // ✅ NOW CAN DELETE INQUIRIES
+                self::ACTION_EDIT => true, 
+                self::ACTION_DELETE => true   
             ]
         ]
     ];
@@ -234,15 +223,12 @@ class Permissions {
         
         // Admin rules
         if ($actorRole === self::ROLE_ADMIN) {
-            // Can only create Editor accounts
             if ($targetRole === self::ROLE_EDITOR && $action === self::ACTION_CREATE) {
                 return true;
             }
-            // Cannot edit or delete any users
             return false;
         }
-        
-        // ✅ Editors have NO user management permissions whatsoever
+
         return false;
     }
     
@@ -259,11 +245,7 @@ class Permissions {
         }
     }
     
-    /**
-     * Deny access with proper logging
-     */
     private static function denyAccess($reason) {
-        // Log unauthorized access attempt
         if (isset($_SESSION['admin_id'])) {
             global $conn;
             if (isset($conn)) {
@@ -275,38 +257,22 @@ class Permissions {
             }
         }
         
-        // Redirect to dashboard with error
         header('Location: ' . SITE_URL . '/dashboard.php?error=insufficient_permissions');
         exit();
     }
     
-    /**
-     * Get all permissions for a role (for debugging/display)
-     */
     public static function getRolePermissions($role) {
         return self::$permissions[$role] ?? [];
     }
     
-    /**
-     * Check if role can publish content
-     * ✅ UPDATED: Now includes Editor role
-     */
     public static function canPublish($role) {
         return in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_EDITOR]);
     }
     
-    /**
-     * Check if role can delete content
-     * ✅ UPDATED: Now includes Editor role
-     */
     public static function canDelete($role) {
         return in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_EDITOR]);
     }
     
-    /**
-     * Check if user can access user management section
-     * ✅ Editors still CANNOT access user management
-     */
     public static function canAccessUserManagement($role) {
         return $role === self::ROLE_SUPER_ADMIN || $role === self::ROLE_ADMIN;
     }

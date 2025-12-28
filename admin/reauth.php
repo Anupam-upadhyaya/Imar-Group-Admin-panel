@@ -21,7 +21,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
     
     if ($access->requireReAuthentication($password)) {
-        // Success - redirect back
         header('Location: ' . $returnUrl);
         exit();
     } else {
@@ -394,7 +393,6 @@ $userEmail = $currentUser['email'] ?? '';
             }
         }
         
-        // Auto-focus on password input
         document.getElementById('password').focus();
     </script>
 </body>

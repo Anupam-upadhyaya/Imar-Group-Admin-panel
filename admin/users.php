@@ -1,13 +1,4 @@
 <?php
-/**
- * IMAR Group Admin Panel - Users Management with RBAC
- * File: admin/users.php
- * 
- * ✅ UPDATED: Added self-deletion feature for Super Admins
- * ✅ OPTIMIZED: Reduced database queries by 60%
- * ✅ ENHANCED: Better permission checks and user feedback
- */
-
 session_start();
 define('SECURE_ACCESS', true);
 
@@ -25,13 +16,11 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
-// ✅ RBAC: Only Super Admin and Admin can access user management
 if (!Permissions::canAccessUserManagement($access->getCurrentRole())) {
     header('Location: dashboard.php?error=access_denied');
     exit();
 }
 
-// Get current user info with avatar
 $admin_id = $_SESSION['admin_id'];
 $currentUser = getCurrentUserAvatar($conn, $admin_id);
 
@@ -41,13 +30,11 @@ $admin_role = $currentUser['role'] ?? $_SESSION['admin_role'] ?? 'editor';
 $admin_avatar = $currentUser['avatar'] ?? null;
 $admin_initials = strtoupper(substr($admin_name, 0, 1));
 
-// Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
 $error_message = '';
 $success_message = '';
 
-// ✅ NEW: Check if current Super Admin has pending deletion request
 $pending_deletion = null;
 if ($admin_role === Permissions::ROLE_SUPER_ADMIN) {
     $stmt = $conn->prepare("SELECT * FROM user_deletion_requests WHERE user_id = ? AND status = 'pending' LIMIT 1");
@@ -56,16 +43,13 @@ if ($admin_role === Permissions::ROLE_SUPER_ADMIN) {
     $pending_deletion = $stmt->get_result()->fetch_assoc();
 }
 
-// ✅ RBAC: Handle delete user with strict checks
 if (isset($_GET['delete'])) {
     $delete_id = (int)$_GET['delete'];
     
     try {
-        // Don't allow deleting yourself through this method
         if ($delete_id == $admin_id) {
             $error_message = "You cannot delete your own account directly. Use the self-deletion request feature.";
         } else {
-            // Get target user details
             $stmt = $conn->prepare("SELECT role, avatar FROM admin_users WHERE id = ?");
             $stmt->bind_param("i", $delete_id);
             $stmt->execute();
@@ -74,13 +58,10 @@ if (isset($_GET['delete'])) {
             if (!$target_user) {
                 $error_message = "User not found.";
             } else {
-                // Check if current user can delete this specific user
                 if (!Permissions::canManageUser($admin_role, $target_user['role'], Permissions::ACTION_DELETE)) {
                     $error_message = "You don't have permission to delete this user.";
                 } else {
-                    // Require password re-authentication for deletion
                     if (!$access->isReAuthenticated()) {
-                        // Store pending action and redirect to re-auth
                         $_SESSION['pending_action'] = 'delete_user';
                         $_SESSION['pending_target'] = $delete_id;
                         $_SESSION['pending_return_url'] = $_SERVER['REQUEST_URI'];
@@ -88,12 +69,10 @@ if (isset($_GET['delete'])) {
                         exit();
                     }
                     
-                    // Proceed with deletion
                     $stmt = $conn->prepare("DELETE FROM admin_users WHERE id = ?");
                     $stmt->bind_param("i", $delete_id);
                     
                     if ($stmt->execute()) {
-                        // Delete avatar file if exists
                         if ($target_user['avatar']) {
                             $avatar_path = __DIR__ . '/../uploads/avatars/' . $target_user['avatar'];
                             if (file_exists($avatar_path)) {
@@ -101,7 +80,6 @@ if (isset($_GET['delete'])) {
                             }
                         }
                         
-                        // Log the privileged action
                         $access->logPrivilegedAction($admin_id, 'deleted_user', 'admin_users', $delete_id);
                         $access->clearReAuthentication();
                         
@@ -117,7 +95,6 @@ if (isset($_GET['delete'])) {
     }
 }
 
-// ✅ RBAC: Handle status toggle with permission checks
 if (isset($_GET['toggle_status'])) {
     $toggle_id = (int)$_GET['toggle_status'];
     
@@ -125,7 +102,7 @@ if (isset($_GET['toggle_status'])) {
         if ($toggle_id == $admin_id) {
             $error_message = "You cannot change your own status.";
         } else {
-            // Get target user role
+
             $stmt = $conn->prepare("SELECT role FROM admin_users WHERE id = ?");
             $stmt->bind_param("i", $toggle_id);
             $stmt->execute();
@@ -134,7 +111,7 @@ if (isset($_GET['toggle_status'])) {
             if (!$target_user) {
                 $error_message = "User not found.";
             } else {
-                // Check if current user can edit this specific user
+
                 if (!Permissions::canManageUser($admin_role, $target_user['role'], Permissions::ACTION_EDIT)) {
                     $error_message = "You don't have permission to modify this user.";
                 } else {
@@ -155,12 +132,11 @@ if (isset($_GET['toggle_status'])) {
     }
 }
 
-// ✅ OPTIMIZED: Get all users with role-based filtering in a single query
 $search = $_GET['search'] ?? '';
 $filter_role = $_GET['role'] ?? 'all';
 $filter_status = $_GET['status'] ?? 'all';
 
-$whereConditions = ["1=1"]; // Always true condition
+$whereConditions = ["1=1"];
 $params = [];
 $types = '';
 
@@ -196,7 +172,6 @@ $stmt->execute();
 $result = $stmt->get_result();
 $users = $result->fetch_all(MYSQLI_ASSOC);
 
-// ✅ OPTIMIZED: Get stats in a single query using subqueries
 $stats_query = "
     SELECT 
         (SELECT COUNT(*) FROM admin_users) as total,
@@ -207,22 +182,18 @@ $stats_query = "
 ";
 $stats = $conn->query($stats_query)->fetch_assoc();
 
-// Helper function to get avatar URL
 function getAvatarUrl($avatar) {
     if (!$avatar) {
         return null;
     }
     
-    // Build the file system path
     $file_path = __DIR__ . '/../uploads/avatars/' . $avatar;
-    
-    // Check if file exists
+
     if (file_exists($file_path) && is_file($file_path)) {
-        // Return the web-accessible URL
+
         return '../uploads/avatars/' . $avatar;
     }
     
-    // File doesn't exist
     return null;
 }
 ?>
@@ -430,7 +401,6 @@ function getAvatarUrl($avatar) {
             transform: translateY(-2px);
         }
         
-        /* ✅ NEW: Self-deletion feature styles */
         .btn-self-delete {
             background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
             color: white;
@@ -753,7 +723,7 @@ function getAvatarUrl($avatar) {
                             // ✅ NEW: Check if this is current user
                             $isCurrentUser = ($user['id'] == $admin_id);
                             
-                            // ✅ NEW: Check if user has pending deletion
+                            //Check if user has pending deletion
                             $userHasPendingDeletion = false;
                             if ($user['role'] === Permissions::ROLE_SUPER_ADMIN) {
                                 $stmt = $conn->prepare("SELECT id FROM user_deletion_requests WHERE user_id = ? AND status = 'pending' LIMIT 1");
@@ -808,7 +778,7 @@ function getAvatarUrl($avatar) {
                                 <td>
                                     <div class="action-buttons">
                                         <?php if ($isCurrentUser): ?>
-                                            <!-- ✅ NEW: Self-deletion option for Super Admins -->
+                                            <!--Self-deletion option for Super Admins -->
                                             <?php if ($admin_role === Permissions::ROLE_SUPER_ADMIN): ?>
                                                 <?php if ($userHasPendingDeletion): ?>
                                                     <a href="cancel-deletion.php" 
