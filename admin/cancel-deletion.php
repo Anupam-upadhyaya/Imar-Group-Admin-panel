@@ -1,10 +1,18 @@
 <?php
+/**
+ * IMAR Group Admin Panel - Cancel Self-Deletion Request
+ * File: admin/cancel-deletion.php
+ * 
+ * Allows Super Admins to cancel their pending self-deletion requests
+ */
+
 session_start();
 define('SECURE_ACCESS', true);
 
 require_once __DIR__ . '/../config/config.php';
 require_once __DIR__ . '/../includes/classes/Auth.php';
 require_once __DIR__ . '/../includes/classes/AccessControl.php';
+require_once __DIR__ . '/../includes/classes/Permissions.php';
 
 $auth = new Auth($conn);
 $access = new AccessControl($conn);
@@ -14,31 +22,72 @@ if (!$auth->isLoggedIn()) {
     exit();
 }
 
+$currentUser = $auth->getCurrentUser();
+
+// ✅ Only Super Admins can cancel self-deletion
+if ($currentUser['role'] !== Permissions::ROLE_SUPER_ADMIN) {
+    header('Location: dashboard.php?error=access_denied');
+    exit();
+}
+
 $error = '';
-$returnUrl = $_GET['return'] ?? 'dashboard.php';
+$success = '';
+
+// Check for existing deletion request
+$stmt = $conn->prepare("SELECT * FROM user_deletion_requests WHERE user_id = ? AND status = 'pending'");
+$stmt->bind_param("i", $currentUser['id']);
+$stmt->execute();
+$existingRequest = $stmt->get_result()->fetch_assoc();
+
+if (!$existingRequest) {
+    header('Location: users.php?error=no_deletion_request');
+    exit();
+}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
+    $reason = $_POST['reason'] ?? '';
     
-    if ($access->requireReAuthentication($password)) {
-        // Success - redirect back
-        header('Location: ' . $returnUrl);
-        exit();
-    } else {
+    // Require re-authentication
+    if (!$access->requireReAuthentication($password)) {
         $error = 'Incorrect password';
+    } else {
+        // Cancel the deletion request
+        $stmt = $conn->prepare("
+            UPDATE user_deletion_requests 
+            SET status = 'cancelled', 
+                cancellation_reason = ?,
+                completed_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->bind_param("si", $reason, $existingRequest['id']);
+        
+        if ($stmt->execute()) {
+            // Log the action
+            $access->logPrivilegedAction(
+                $currentUser['id'], 
+                'cancelled_self_deletion', 
+                'user_deletion_requests', 
+                $existingRequest['id'],
+                "Cancelled deletion request. Reason: $reason"
+            );
+            
+            $access->clearReAuthentication();
+            
+            header('Location: users.php?success=deletion_cancelled');
+            exit();
+        } else {
+            $error = 'Failed to cancel deletion request. Please try again.';
+        }
     }
 }
-
-$currentUser = $auth->getCurrentUser();
-$userName = $currentUser['name'] ?? 'User';
-$userEmail = $currentUser['email'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify Your Identity - IMAR Group Admin</title>
+    <title>Cancel Account Deletion - IMAR Group Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         * {
@@ -49,7 +98,7 @@ $userEmail = $currentUser['email'] ?? '';
         
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -57,12 +106,12 @@ $userEmail = $currentUser['email'] ?? '';
             padding: 20px;
         }
         
-        .reauth-container {
+        .cancel-container {
             background: white;
             border-radius: 16px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 450px;
+            max-width: 550px;
             width: 100%;
             animation: slideUp 0.4s ease-out;
         }
@@ -78,15 +127,15 @@ $userEmail = $currentUser['email'] ?? '';
             }
         }
         
-        .reauth-header {
+        .cancel-header {
             text-align: center;
             margin-bottom: 30px;
         }
         
-        .lock-icon {
+        .success-icon {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             border-radius: 50%;
             display: flex;
             align-items: center;
@@ -94,60 +143,53 @@ $userEmail = $currentUser['email'] ?? '';
             margin: 0 auto 20px;
             color: white;
             font-size: 36px;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.3);
         }
         
-        .reauth-header h2 {
+        .cancel-header h2 {
             font-size: 24px;
             color: #1e293b;
             margin-bottom: 10px;
             font-weight: 700;
         }
         
-        .reauth-header p {
+        .cancel-header p {
             color: #64748b;
             font-size: 15px;
             line-height: 1.6;
         }
         
-        .user-info {
-            background: #f8fafc;
+        .info-box {
+            background: #f0fdf4;
+            border: 1px solid #86efac;
             border-radius: 12px;
-            padding: 15px;
+            padding: 20px;
             margin-bottom: 25px;
+        }
+        
+        .info-box h3 {
+            color: #166534;
+            font-size: 16px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
         
-        .user-avatar {
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+        .info-box p {
+            color: #15803d;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .scheduled-date {
+            background: white;
+            padding: 12px;
+            border-radius: 8px;
             font-weight: 600;
-            font-size: 18px;
-            flex-shrink: 0;
-        }
-        
-        .user-details {
-            flex: 1;
-        }
-        
-        .user-name {
-            font-weight: 600;
-            color: #1e293b;
-            font-size: 15px;
-            margin-bottom: 2px;
-        }
-        
-        .user-email {
-            color: #64748b;
-            font-size: 13px;
+            color: #166534;
+            margin-top: 10px;
         }
         
         .alert {
@@ -158,13 +200,6 @@ $userEmail = $currentUser['email'] ?? '';
             align-items: center;
             gap: 10px;
             font-size: 14px;
-            animation: shake 0.5s;
-        }
-        
-        @keyframes shake {
-            0%, 100% { transform: translateX(0); }
-            25% { transform: translateX(-10px); }
-            75% { transform: translateX(10px); }
         }
         
         .alert-error {
@@ -178,7 +213,7 @@ $userEmail = $currentUser['email'] ?? '';
         }
         
         .form-group {
-            margin-bottom: 25px;
+            margin-bottom: 20px;
         }
         
         .form-group label {
@@ -189,13 +224,10 @@ $userEmail = $currentUser['email'] ?? '';
             font-size: 14px;
         }
         
-        .password-input-wrapper {
-            position: relative;
-        }
-        
-        .form-group input {
+        .form-group input,
+        .form-group textarea {
             width: 100%;
-            padding: 14px 45px 14px 16px;
+            padding: 14px 16px;
             border: 2px solid #e2e8f0;
             border-radius: 10px;
             font-size: 15px;
@@ -203,10 +235,20 @@ $userEmail = $currentUser['email'] ?? '';
             font-family: inherit;
         }
         
-        .form-group input:focus {
+        .form-group textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
+            border-color: #10b981;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1);
+        }
+        
+        .password-input-wrapper {
+            position: relative;
         }
         
         .toggle-password {
@@ -224,7 +266,7 @@ $userEmail = $currentUser['email'] ?? '';
         }
         
         .toggle-password:hover {
-            color: #667eea;
+            color: #10b981;
         }
         
         .form-actions {
@@ -250,14 +292,14 @@ $userEmail = $currentUser['email'] ?? '';
         }
         
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             color: white;
-            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
         }
         
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.5);
+            box-shadow: 0 8px 20px rgba(16, 185, 129, 0.5);
         }
         
         .btn-primary:active {
@@ -273,31 +315,18 @@ $userEmail = $currentUser['email'] ?? '';
             background: #e2e8f0;
         }
         
-        .security-note {
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 20px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
+        .help-text {
             font-size: 13px;
-            color: #0c4a6e;
-        }
-        
-        .security-note i {
-            color: #0ea5e9;
-            font-size: 16px;
-            margin-top: 1px;
+            color: #64748b;
+            margin-top: 8px;
         }
         
         @media (max-width: 480px) {
-            .reauth-container {
+            .cancel-container {
                 padding: 30px 20px;
             }
             
-            .reauth-header h2 {
+            .cancel-header h2 {
                 font-size: 20px;
             }
             
@@ -312,23 +341,28 @@ $userEmail = $currentUser['email'] ?? '';
     </style>
 </head>
 <body>
-    <div class="reauth-container">
-        <div class="reauth-header">
-            <div class="lock-icon">
-                <i class="fas fa-shield-halved"></i>
+    <div class="cancel-container">
+        <div class="cancel-header">
+            <div class="success-icon">
+                <i class="fas fa-undo-alt"></i>
             </div>
-            <h2>Verify Your Identity</h2>
-            <p>This action requires password confirmation for security</p>
+            <h2>Cancel Account Deletion</h2>
+            <p>You can cancel your account deletion request at any time before it's processed</p>
         </div>
         
-        <div class="user-info">
-            <div class="user-avatar">
-                <?php echo strtoupper(substr($userName, 0, 1)); ?>
+        <div class="info-box">
+            <h3>
+                <i class="fas fa-info-circle"></i>
+                Current Deletion Schedule
+            </h3>
+            <p>Your account is currently scheduled for deletion on:</p>
+            <div class="scheduled-date">
+                <i class="fas fa-calendar-alt"></i>
+                <?php echo date('l, F j, Y \a\t g:i A', strtotime($existingRequest['scheduled_deletion_at'])); ?>
             </div>
-            <div class="user-details">
-                <div class="user-name"><?php echo htmlspecialchars($userName); ?></div>
-                <div class="user-email"><?php echo htmlspecialchars($userEmail); ?></div>
-            </div>
+            <p style="margin-top: 12px; font-size: 13px;">
+                Cancelling this request will keep your account active and remove the scheduled deletion.
+            </p>
         </div>
         
         <?php if ($error): ?>
@@ -341,7 +375,7 @@ $userEmail = $currentUser['email'] ?? '';
         <form method="POST">
             <div class="form-group">
                 <label for="password">
-                    <i class="fas fa-lock"></i> Enter Your Password
+                    <i class="fas fa-lock"></i> Confirm Your Password
                 </label>
                 <div class="password-input-wrapper">
                     <input type="password" 
@@ -359,23 +393,27 @@ $userEmail = $currentUser['email'] ?? '';
                 </div>
             </div>
             
+            <div class="form-group">
+                <label for="reason">
+                    <i class="fas fa-comment"></i> Reason for Cancellation (Optional)
+                </label>
+                <textarea id="reason" 
+                          name="reason" 
+                          placeholder="Why are you cancelling the deletion request? (This helps us improve)"></textarea>
+                <div class="help-text">
+                    <i class="fas fa-lightbulb"></i> This is optional but helps us understand your needs better
+                </div>
+            </div>
+            
             <div class="form-actions">
                 <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-check"></i> Verify Identity
+                    <i class="fas fa-check"></i> Cancel Deletion Request
                 </button>
-                <a href="dashboard.php" class="btn btn-secondary">
-                    <i class="fas fa-times"></i> Cancel
+                <a href="users.php" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Go Back
                 </a>
             </div>
         </form>
-        
-        <div class="security-note">
-            <i class="fas fa-info-circle"></i>
-            <div>
-                <strong>Why are we asking this?</strong><br>
-                This extra security step protects sensitive actions like deleting users.
-            </div>
-        </div>
     </div>
     
     <script>

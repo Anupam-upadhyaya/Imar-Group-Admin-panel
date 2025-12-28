@@ -2,9 +2,6 @@
 /**
  * IMAR Group Admin Panel - Access Control Middleware
  * File: includes/classes/AccessControl.php
- * 
- * Enforces RBAC at application level
- * Must be included in every protected page
  */
 
 if (!defined('SECURE_ACCESS')) {

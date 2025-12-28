@@ -1,6 +1,6 @@
 <?php
 /**
- * IMAR Group Admin Panel - Blog Management
+ * IMAR Group Admin Panel - Blog Management with RBAC
  * File: admin/BLOG_CODE/blog.php
  */
 
@@ -10,19 +10,12 @@ define('SECURE_ACCESS', true);
 // Use same path structure as gallery.php
 require_once __DIR__ . '/../../config/config.php';
 require_once __DIR__ . '/../../includes/classes/Auth.php';
+require_once __DIR__ . '/../includes/avatar-helper.php';
 require_once __DIR__ . '/../../includes/classes/AccessControl.php';
 require_once __DIR__ . '/../../includes/classes/Permissions.php';
-require_once __DIR__ . '/../includes/avatar-helper.php';
 
 $auth = new Auth($conn);
 $access = new AccessControl($conn);
-
-// ✅ RBAC: Check if user can view blogs
-$access->checkAccess(Permissions::RESOURCE_BLOG, Permissions::ACTION_VIEW);
-
-// Get current user and role
-$currentUser = $auth->getCurrentUser();
-$userRole = $currentUser['role'];
 
 if (!$auth->isLoggedIn()) {
     header('Location: ../login.php');
@@ -42,56 +35,47 @@ $admin_initials = strtoupper(substr($admin_name, 0, 1));
 // Get avatar URL
 $avatarUrl = getAvatarPath($admin_avatar, __DIR__);
 
-// RBAC: Handle delete with permission check
+// ✅ RBAC: Handle delete with permission check
 if (isset($_GET['delete'])) {
-
-    if (!Permissions::can($userRole, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)) {
-        $access->logSecurityEvent(
-            $currentUser['id'],
-            'unauthorized_access',
-            'Attempted to delete blog post without permission'
-        );
-        header('Location: blog.php?error=cannot_delete');
-        exit();
-    }
-
     $delete_id = (int)$_GET['delete'];
     
-    // Get image paths before deleting
-    $stmt = $conn->prepare("SELECT featured_image, thumbnail FROM blog_posts WHERE id = ?");
-    $stmt->bind_param("i", $delete_id);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    if ($row = $result->fetch_assoc()) {
-
-        // Delete from database
-        $stmt = $conn->prepare("DELETE FROM blog_posts WHERE id = ?");
+    // Check if user has permission to delete blog posts
+    if (!Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)) {
+        $error_message = "You don't have permission to delete blog posts.";
+    } else {
+        // Get image paths before deleting
+        $stmt = $conn->prepare("SELECT featured_image, thumbnail FROM blog_posts WHERE id = ?");
         $stmt->bind_param("i", $delete_id);
         $stmt->execute();
-
-        // Delete image files
-        $document_root = $_SERVER['DOCUMENT_ROOT'];
-
-        if ($row['featured_image']) {
-            $image_path = $document_root . '/Imar-Group-Website/' . $row['featured_image'];
-            if (file_exists($image_path)) unlink($image_path);
+        $result = $stmt->get_result();
+        
+        if ($row = $result->fetch_assoc()) {
+            // Delete from database
+            $stmt = $conn->prepare("DELETE FROM blog_posts WHERE id = ?");
+            $stmt->bind_param("i", $delete_id);
+            
+            if ($stmt->execute()) {
+                // Delete image files
+                $document_root = $_SERVER['DOCUMENT_ROOT'];
+                if ($row['featured_image']) {
+                    $image_path = $document_root . '/Imar-Group-Website/' . $row['featured_image'];
+                    if (file_exists($image_path)) @unlink($image_path);
+                }
+                if ($row['thumbnail']) {
+                    $thumb_path = $document_root . '/Imar-Group-Website/' . $row['thumbnail'];
+                    if (file_exists($thumb_path)) @unlink($thumb_path);
+                }
+                
+                // Log activity
+                $auth->logActivity($admin_id, 'deleted_blog_post', 'blog_posts', $delete_id);
+                
+                $success_message = "Blog post deleted successfully!";
+            } else {
+                $error_message = "Failed to delete blog post.";
+            }
+        } else {
+            $error_message = "Blog post not found.";
         }
-
-        if ($row['thumbnail']) {
-            $thumb_path = $document_root . '/Imar-Group-Website/' . $row['thumbnail'];
-            if (file_exists($thumb_path)) unlink($thumb_path);
-        }
-
-        // Log privileged action
-        $access->logPrivilegedAction(
-            $currentUser['id'],
-            'deleted_blog_post',
-            'blog_posts',
-            $delete_id
-        );
-
-        $success_message = "Blog post deleted successfully!";
     }
 }
 
@@ -153,6 +137,11 @@ $category_counts = [
     'retirement' => $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE category = 'retirement'")->fetch_assoc()['count'],
     'news' => $conn->query("SELECT COUNT(*) as count FROM blog_posts WHERE category = 'news'")->fetch_assoc()['count']
 ];
+
+// ✅ RBAC: Check permissions for UI display
+$canDelete = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE);
+$canEdit = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_EDIT);
+$canCreate = Permissions::can($admin_role, Permissions::RESOURCE_BLOG, Permissions::ACTION_CREATE);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -324,6 +313,7 @@ $category_counts = [
             display: flex;
             align-items: center;
             justify-content: center;
+            text-decoration: none;
         }
         
         .add-new-btn:hover {
@@ -377,72 +367,72 @@ $category_counts = [
             flex-wrap: wrap;
         }
         
-       .search-box {
-    flex: 1;
-    min-width: 250px;
-    max-width: 1000px; /* Increased max width */
-    width: 100%;
-}
-      .search-input {
-    flex: 1;
-    padding: 12px 16px;
-    border: 2px solid #e5e7eb;
-    border-radius: 8px;
-    font-size: 14px;
-    background: white;
-    color: #374151;
-    transition: all 0.3s ease;
-    outline: none;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-    width: 100%; /* Increased min width */
-}
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            background: white;
+            color: #374151;
+            transition: all 0.3s ease;
+            outline: none;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+            width: 100%;
+        }
 
-.search-input:focus {
-    border-color: #4f46e5;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
-}
+        .search-input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.2);
+        }
 
-.search-input::placeholder {
-    color: #9ca3af;
-}
+        .search-input::placeholder {
+            color: #9ca3af;
+        }
 
-.search-box .action-btn {
-    padding: 12px 24px;
-    background: #4f46e5;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    white-space: nowrap;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
+        .search-box .action-btn {
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
 
-.search-box .action-btn:hover {
-    background: #4338ca;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-}
+        .search-box .action-btn:hover {
+            background: #4338ca;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+        }
 
-.search-box .action-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
-}
+        .search-box .action-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
 
-/* Responsive adjustments */
-@media (min-width: 768px) {
-    .search-input {
-        min-width: 400px;
-    }
-}
+        @media (min-width: 768px) {
+            .search-input {
+                min-width: 400px;
+            }
+        }
 
-@media (min-width: 1024px) {
-    .search-input {
-        min-width: 500px;
-    }
-}
+        @media (min-width: 1024px) {
+            .search-input {
+                min-width: 500px;
+            }
+        }
         
         .filter-select {
             padding: 10px 15px;
@@ -451,13 +441,31 @@ $category_counts = [
             font-size: 14px;
             cursor: pointer;
         }
+        
+        .alert {
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .alert-success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        
+        .alert-error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
     </style>
 </head>
 <body>
 
-    <div class="dashboard">
+<div class="dashboard">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
-    
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -465,7 +473,7 @@ $category_counts = [
             <h1>Blog Management</h1>
             <div class="header-actions">
                 <div class="user-info">
-                                      <div class="user-avatar">
+                    <div class="user-avatar">
                         <?php if ($avatarUrl): ?>
                             <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
                                  alt="<?php echo htmlspecialchars($admin_name); ?>"
@@ -476,7 +484,7 @@ $category_counts = [
                     </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
+                        <div style="font-size: 12px; color: #6b7280;"><?php echo str_replace('_', ' ', ucwords($admin_role)); ?></div>
                     </div>
                 </div>
                 <a href="/Imar_Group_Admin_panel/admin/logout.php" class="logout-btn">Logout</a>
@@ -484,8 +492,14 @@ $category_counts = [
         </div>
 
         <?php if (isset($success_message)): ?>
-            <div class="alert alert-success" style="background: #d1fae5; color: #065f46; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
-                <?php echo $success_message; ?>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> <?php echo htmlspecialchars($success_message); ?>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($error_message)): ?>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> <?php echo htmlspecialchars($error_message); ?>
             </div>
         <?php endif; ?>
 
@@ -600,15 +614,16 @@ $category_counts = [
                             
                             <div class="blog-card-actions">
                                 <a href="view-blog.php?id=<?php echo $post['id']; ?>" class="btn-small btn-view">View</a>
-                                <a href="edit-blog.php?id=<?php echo $post['id']; ?>" class="btn-small btn-edit">Edit</a>
-                               <?php if (Permissions::can($userRole, Permissions::RESOURCE_BLOG, Permissions::ACTION_DELETE)): ?>
-    <a href="?delete=<?php echo $post['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>" 
-       class="btn-small btn-delete"
-       onclick="return confirm('Are you sure you want to delete this blog post?')">
-       Delete
-    </a>
-<?php endif; ?>
-
+                                
+                                <?php if ($canEdit): ?>
+                                    <a href="edit-blog.php?id=<?php echo $post['id']; ?>" class="btn-small btn-edit">Edit</a>
+                                <?php endif; ?>
+                                
+                                <?php if ($canDelete): ?>
+                                    <a href="?delete=<?php echo $post['id']; ?>&category=<?php echo $filter_category; ?>&status=<?php echo $filter_status; ?>&search=<?php echo urlencode($search); ?>" 
+                                       class="btn-small btn-delete"
+                                       onclick="return confirm('Are you sure you want to delete this blog post?')">Delete</a>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -617,7 +632,9 @@ $category_counts = [
         <?php endif; ?>
 
         <!-- Add New Button -->
-        <a href="add-blog.php" class="add-new-btn" title="Add New Blog Post">+</a>
+        <?php if ($canCreate): ?>
+            <a href="add-blog.php" class="add-new-btn" title="Add New Blog Post">+</a>
+        <?php endif; ?>
     </div>
 </div>
 

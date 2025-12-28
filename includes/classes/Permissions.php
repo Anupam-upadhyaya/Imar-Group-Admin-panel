@@ -133,47 +133,47 @@ class Permissions {
         
         self::ROLE_EDITOR => [
             self::RESOURCE_USER => [
-                self::ACTION_CREATE => false,
-                self::ACTION_EDIT => false,
-                self::ACTION_DELETE => false,
-                self::ACTION_VIEW => false  // No user management access
+                self::ACTION_CREATE => false,  // ✅ Cannot create any users
+                self::ACTION_EDIT => false,    // ✅ Cannot edit users
+                self::ACTION_DELETE => false,  // ✅ Cannot delete users
+                self::ACTION_VIEW => false     // ✅ No user management access
             ],
             self::RESOURCE_CONTENT => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => false,  // Cannot delete
-                self::ACTION_PUBLISH => false, // Cannot publish
+                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE CONTENT
+                self::ACTION_PUBLISH => true,  // ✅ NOW CAN PUBLISH CONTENT
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_BLOG => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => false,
-                self::ACTION_PUBLISH => false,
+                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE BLOG POSTS
+                self::ACTION_PUBLISH => true,  // ✅ NOW CAN PUBLISH BLOG POSTS
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_GALLERY => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => false,
+                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE GALLERY ITEMS
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_SERVICE => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => false,
+                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE SERVICES
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_VIDEO => [
                 self::ACTION_CREATE => true,
                 self::ACTION_EDIT => true,
-                self::ACTION_DELETE => false,
+                self::ACTION_DELETE => true,   // ✅ NOW CAN DELETE VIDEOS
                 self::ACTION_VIEW => true
             ],
             self::RESOURCE_INQUIRY => [
                 self::ACTION_VIEW => true,
-                self::ACTION_EDIT => true,  // Can update status
-                self::ACTION_DELETE => false
+                self::ACTION_EDIT => true,     // Can update status
+                self::ACTION_DELETE => true    // ✅ NOW CAN DELETE INQUIRIES
             ]
         ]
     ];
@@ -242,7 +242,7 @@ class Permissions {
             return false;
         }
         
-        // Editors have no user management permissions
+        // ✅ Editors have NO user management permissions whatsoever
         return false;
     }
     
@@ -289,20 +289,23 @@ class Permissions {
     
     /**
      * Check if role can publish content
+     * ✅ UPDATED: Now includes Editor role
      */
     public static function canPublish($role) {
-        return $role === self::ROLE_SUPER_ADMIN || $role === self::ROLE_ADMIN;
+        return in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_EDITOR]);
     }
     
     /**
      * Check if role can delete content
+     * ✅ UPDATED: Now includes Editor role
      */
     public static function canDelete($role) {
-        return $role === self::ROLE_SUPER_ADMIN || $role === self::ROLE_ADMIN;
+        return in_array($role, [self::ROLE_SUPER_ADMIN, self::ROLE_ADMIN, self::ROLE_EDITOR]);
     }
     
     /**
      * Check if user can access user management section
+     * ✅ Editors still CANNOT access user management
      */
     public static function canAccessUserManagement($role) {
         return $role === self::ROLE_SUPER_ADMIN || $role === self::ROLE_ADMIN;

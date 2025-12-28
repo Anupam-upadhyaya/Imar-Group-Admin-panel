@@ -1,6 +1,6 @@
 <?php
 /**
- * IMAR Group Admin Panel - Dashboard
+ * IMAR Group Admin Panel - Dashboard with RBAC
  * File: admin/dashboard.php
  */
 
@@ -13,10 +13,13 @@ define('SECURE_ACCESS', true);
 // Include configuration and classes
 require_once '../config/config.php';
 require_once '../includes/classes/Auth.php';
-require_once 'includes/avatar-helper.php'; // ADD THIS LINE
+require_once '../includes/classes/AccessControl.php';
+require_once '../includes/classes/Permissions.php';
+require_once 'includes/avatar-helper.php';
 
-// Initialize Auth
+// Initialize Auth and Access Control
 $auth = new Auth($conn);
+$access = new AccessControl($conn);
 
 // Check if user is logged in
 if (!$auth->isLoggedIn()) {
@@ -156,66 +159,8 @@ $new_inquiries_count = $stats['new_inquiries'];
 <body>
 
 <div class="dashboard">
-    <!-- SIDEBAR - Module -->
-    <div class="sidebar">
-        <div class="sidebar-header">
-            <div class="sidebar-logo">
-                <div class="logo-container">
-                    <img src="../assets/logo.png" alt="IMAR Group Logo">
-                </div>
-                <div class="sidebar-logo-text">
-                    <h2>IMAR Group</h2>
-                    <p>Admin Panel</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="sidebar-menu">
-            <a href="/Imar_Group_Admin_panel/admin/dashboard.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'dashboard.php' ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>
-                <span>Dashboard</span>
-            </a>
-            
-            <a href="/Imar_Group_Admin_panel/admin/INQUIRY_CODE/inquiries.php" class="menu-item <?php echo strpos($_SERVER['PHP_SELF'], 'INQUIRY_CODE') !== false ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24">
-                    <path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/>
-                </svg>
-                <span>Inquiries</span>
-                <?php if ($new_inquiries_count > 0): ?>
-                    <span style="margin-left: auto; background: #ef4444; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px;">
-                        <?php echo $new_inquiries_count; ?>
-                    </span>
-                <?php endif; ?>
-            </a>
-            
-            <a href="/Imar_Group_Admin_panel/admin/GALLERY_CODE/gallery.php" class="menu-item <?php echo strpos($_SERVER['PHP_SELF'], 'GALLERY_CODE') !== false ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
-                <span>Gallery</span>
-            </a>
-            
-            <a href="/Imar_Group_Admin_panel/admin/BLOG_CODE/blog.php" class="menu-item <?php echo strpos($_SERVER['PHP_SELF'], 'BLOG_CODE') !== false ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>
-                <span>Blog Posts</span>
-            </a>
-            
-            <a href="/Imar_Group_Admin_panel/admin/VIDEOS_CODE/videos.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'videos.php' ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>
-                <span>Videos</span>
-            </a>
-
-            <a href="/Imar_Group_Admin_panel/admin/SERVICES_CODE/services.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'services.php' ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M3 11h8V3H3v8zm2-6h4v4H5V5zm8-2v8h8V3h-8zm6 6h-4V5h4v4zM3 21h8v-8H3v8zm2-6h4v4H5v-4zm8 6h8v-8h-8v8zm2-6h4v4h-4v-4z"/>
-                </svg>
-                <span>Services</span>
-            </a>
-            
-            <a href="/Imar_Group_Admin_panel/admin/users.php" class="menu-item <?php echo basename($_SERVER['PHP_SELF']) === 'users.php' ? 'active' : ''; ?>">
-                <svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg>
-                <span>Users</span>
-            </a>
-        </div>
-    </div>
+    <!-- ✅ REUSABLE SIDEBAR MODULE -->
+    <?php include __DIR__ . '/includes/sidebar.php'; ?>
 
     <!-- MAIN CONTENT -->
     <div class="main-content">
@@ -224,7 +169,6 @@ $new_inquiries_count = $stats['new_inquiries'];
             <h1>Dashboard</h1>
             <div class="header-actions">
                 <div class="user-info">
-                    <!-- UPDATED AVATAR SECTION -->
                     <div class="user-avatar">
                         <?php if ($avatarUrl): ?>
                             <img src="<?php echo htmlspecialchars($avatarUrl); ?>" 
@@ -236,7 +180,7 @@ $new_inquiries_count = $stats['new_inquiries'];
                     </div>
                     <div>
                         <div style="font-weight: 600; font-size: 14px;"><?php echo htmlspecialchars($admin_name); ?></div>
-                        <div style="font-size: 12px; color: #6b7280;"><?php echo ucfirst($admin_role); ?></div>
+                        <div style="font-size: 12px; color: #6b7280;"><?php echo str_replace('_', ' ', ucwords($admin_role)); ?></div>
                     </div>
                 </div>
                 <a href="/Imar_Group_Admin_panel/admin/logout.php" class="logout-btn">Logout</a>
@@ -269,12 +213,16 @@ $new_inquiries_count = $stats['new_inquiries'];
                 </svg>
                 <span>Create Blog</span>
             </a>
-            <a href="/Imar_Group_Admin_panel/admin/users.php" class="quick-action-btn">
-                <svg viewBox="0 0 24 24">
-                    <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-                </svg>
-                <span>Add User</span>
-            </a>
+            
+            <!-- ✅ RBAC: Show "Add User" only for Super Admin and Admin -->
+            <?php if (Permissions::canAccessUserManagement($admin_role)): ?>
+                <a href="/Imar_Group_Admin_panel/admin/users.php" class="quick-action-btn">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                    </svg>
+                    <span>Add User</span>
+                </a>
+            <?php endif; ?>
         </div>
 
         <!-- Stats Grid -->
@@ -423,7 +371,6 @@ $new_inquiries_count = $stats['new_inquiries'];
                         $activityInitials = strtoupper(substr($name, 0, 1));
                     ?>
                         <div class="activity-item">
-                            <!-- UPDATED AVATAR IN ACTIVITY FEED -->
                             <div class="activity-icon">
                                 <?php if ($activityAvatarUrl): ?>
                                     <img src="<?php echo htmlspecialchars($activityAvatarUrl); ?>" 
